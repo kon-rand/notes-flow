@@ -250,8 +250,8 @@ httpx>=0.25.0
 | 1 | TICKET-001.md | ✅ | Базовая структура (config.py, models.py, FileManager) |
 | 2 | TICKET-002.md | ✅ | Обработка сообщений (handlers/messages.py) |
 | 3 | TICKET-003.md | ✅ | Таймеры (SummarizeTimer) |
-| 4 | TICKET-004.md | ⏳ | Контекстный анализ (ContextAnalyzer) |
-| 5 | TICKET-005.md | ⏳ | Ollama интеграция (utils/ollama_client.py) |
+| 4 | TICKET-004.md | ✅ | Контекстный анализ (ContextAnalyzer) |
+| 5 | TICKET-005.md | ✅ | Ollama интеграция (utils/ollama_client.py) |
 | 6 | TICKET-006.md | ⏳ | Саммаризатор (handlers/summarizer.py) |
 | 7 | TICKET-007.md | ⏳ | Команды бота (handlers/commands.py) |
 | 8 | TICKET-008.md | ⏳ | Обработка пересылок (forward_origin parsing) |
