@@ -90,3 +90,13 @@ async def message_handler(message: Message):
     delay = Settings.DEFAULT_SUMMARIZE_DELAY
     await SummarizeTimer.schedule_summarization(user_id, delay)
 ```
+
+## Требования к тестированию
+- [ ] Unit-тесты для SummarizeTimer.schedule_summarization: создание asyncio.Task, добавление в словарь
+- [ ] Unit-тесты для SummarizeTimer.reset: отмена task, удаление из словаря
+- [ ] Unit-тесты для _wait_and_summarize: корректная задержка, вызов auto_summarize
+- [ ] Integration-тесты: обработка новых сообщений → reset таймера → schedule новый
+- [ ] Тестирование отмены предыдущих таймеров при schedule нового
+- [ ] Проверка работы с несколькими user_id: изоляция таймеров
+- [ ] Integration-тесты команды /settings: парсинг аргументов, сохранение задержки, обновление таймера
+- [ ] Edge cases: отмена task до завершения, повторный reset одного таймера

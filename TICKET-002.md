@@ -88,3 +88,13 @@ async def message_handler(message: Message):
 - sender_name: "B.name"
 - content: текст сообщения B
 ```
+
+## Требования к тестированию
+- [ ] Unit-тесты для message_handler: извлечение user_id, content, chat_id
+- [ ] Unit-тесты для обработки обычных сообщений: создание InboxMessage с правильными полями
+- [ ] Unit-тесты для пересылок ForwardOriginUser: извлечение sender_id, sender_name
+- [ ] Unit-тесты для пересылок ForwardOriginHiddenUser: обработка скрытых пользователей
+- [ ] Unit-тесты для пересылок ForwardOriginChat: извлечение chat.id, sender_title
+- [ ] Integration-тесты: полный цикл message_handler → создание InboxMessage → FileManager.append_message
+- [ ] Проверка edge cases: сообщения без from_user, пересылки без sender_name, пустой content
+- [ ] Тестирование интеграции с FileManager: сохранение разных типов сообщений

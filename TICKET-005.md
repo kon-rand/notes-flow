@@ -127,10 +127,22 @@ elif result["action"] == "create_note":
     note = Note(
         id=f"note_{len(notes)+1:03d}",
         title=result["title"],
-        tags=result["tags"],
+        tags=result.get("tags", []),
         content=result["content"],
         source_message_ids=[m.id for m in group],
         created_at=datetime.now()
     )
     FileManager.append_note(user_id, note)
 ```
+
+## Требования к тестированию
+- [ ] Unit-тесты для OllamaConfig: значение по умолчанию base_url, model
+- [ ] Unit-тесты для _format_messages: форматирование сообщений с timestamp, sender_name
+- [ ] Unit-тесты для _build_prompt: генерация промпта для задач, структура JSON
+- [ ] Unit-тесты для _parse_response: извлечение JSON из ответа, обработка некорректного формата
+- [ ] Integration-тесты для summarize_group: успешный запрос к Ollama, возврат create_task
+- [ ] Integration-тесты для summarize_group: возврат create_note, skip
+- [ ] Integration-тесты для summarize_group: обработка httpx.ConnectError (Ollama недоступен)
+- [ ] Integration-тесты для summarize_group: обработка httpx.TimeoutException (timeout)
+- [ ] Integration-тесты для summarize_group: обработка некорректного ответа (status_code != 200)
+- [ ] Edge cases: пустая группа сообщений, messages без sender_name, очень длинные сообщения

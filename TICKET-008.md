@@ -108,3 +108,14 @@ async def message_handler(message: Message):
 - **ForwardOriginChat**: Пересылка из чата (группа, канал)
 - **ForwardOriginChatAdmin**: Пересылка от администратора чата
 - **ForwardOriginUnknown**: Неизвестный тип (редко встречается)
+
+## Требования к тестированию
+- [ ] Unit-тесты для message_handler: обработка обычных сообщений (без forward_origin)
+- [ ] Unit-тесты для ForwardOriginUser: извлечение sender_id, sender_user.full_name
+- [ ] Unit-тесты для ForwardOriginHiddenUser: извлечение sender_id, обработка None sender_user
+- [ ] Unit-тесты для ForwardOriginChat: извлечение chat.id, sender_title
+- [ ] Unit-тесты для message_handler: создание InboxMessage с правильными полями для всех типов пересылок
+- [ ] Integration-тесты: full cycle message_handler → FileManager.append_message для всех типов пересылок
+- [ ] Integration-тесты: уведомления о сохранении пересланных сообщений
+- [ ] Edge cases: пересылки без sender_name, пересылки с пустым content, неизвестные типы forward_origin
+- [ ] Проверка различий между from_user и sender_id для пересылок

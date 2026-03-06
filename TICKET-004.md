@@ -139,3 +139,14 @@ class ContextAnalyzer:
                 return True
         return False
 ```
+
+## Требования к тестированию
+- [ ] Unit-тесты для ContextAnalyzer.group_messages: обработка пустого списка, одного сообщения, множества
+- [ ] Unit-тесты для _group_by_time_window: группировка в пределах окна, разделение при превышении
+- [ ] Unit-тесты для _group_by_similarity: объединение групп с общими ключевыми словами (≥3)
+- [ ] Unit-тесты для _group_by_similarity: объединение групп с паттернами продолжения
+- [ ] Unit-тесты для get_keywords: извлечение слов длиной >3, lower case, уникальность
+- [ ] Unit-тесты для is_continuation: распознавание паттернов "как я говорил", "ещё по теме"
+- [ ] Unit-тесты для detect_continuation: все паттерны продолжения темы
+- [ ] Integration-тесты: полный цикл group_messages с реальными сообщениями
+- [ ] Edge cases: сообщения с одинаковым временем, пустой content, special characters

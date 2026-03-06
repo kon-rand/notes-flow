@@ -77,6 +77,17 @@ class Note(BaseModel):
 - `append_note(user_id, note)` - добавить заметку
 - `read_notes(user_id)` - прочитать заметки
 
+## Требования к тестированию
+- [ ] Unit-тесты для Settings: загрузка переменных окружения, значение по умолчанию для OLLAMA_BASE_URL
+- [ ] Unit-тесты для Pydantic моделей: валидация обязательных полей, типизация, optional поля
+- [ ] Unit-тесты для FileManager.append_message: создание файла, корректная запись YAML фронтмат
+- [ ] Unit-тесты для FileManager.read_messages: чтение файла, парсинг YAML, создание объектов InboxMessage
+- [ ] Unit-тесты для FileManager.clear_messages: очистка данных, сохранение структуры файла
+- [ ] Unit-тесты для FileManager.append_task, read_tasks, update_task_status: создание, чтение, обновление задач
+- [ ] Unit-тесты для FileManager.append_note, read_notes: создание, чтение заметок
+- [ ] Integration-тесты: полный цикл работы с файлами (создать → прочитать → обновить → удалить)
+- [ ] Проверка обработки ошибок: несуществующие файлы, повреждённый YAML, отсутствие прав доступа
+
 Формат файлов:
 ```yaml
 ---
