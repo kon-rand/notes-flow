@@ -12,6 +12,64 @@ from bot.config import settings
 router = Router()
 
 
+@router.message(Command("start"))
+async def start_handler(message: Message):
+    """Приветствие со статистикой"""
+    user_id = message.from_user.id
+    
+    try:
+        file_manager = FileManager()
+        tasks = file_manager.read_tasks(user_id)
+        notes = file_manager.read_notes(user_id)
+        pending_tasks = [t for t in tasks if t.status == "pending"]
+        
+        stats = f"""🤖 Notes Flow
+
+Привет! Я бот для управления задачами и заметками.
+
+📊 Статистика:
+✅ Задач создано: {len(tasks)}
+📝 Заметок создано: {len(notes)}
+⏳ Осталось задач: {len(pending_tasks)}
+
+📌 Доступные команды:
+/start - показать статистику
+/inbox - просмотр инбокса
+/tasks - список задач
+/notes - список заметок
+/summarize - ручная саммаризация
+/settings delay <мин> - настройка задержки
+/clear inbox - очистить инбокс
+/help - показать эту справку"""
+        
+        await message.answer(stats)
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при загрузке статистики: {str(e)}")
+
+
+@router.message(Command("help"))
+async def help_handler(message: Message):
+    """Показать список команд"""
+    help_text = """📌 Доступные команды:
+
+/start - показать статистику и приветствие
+/inbox - просмотр текущего инбокса (последние 10 сообщений)
+/tasks - список всех задач со статусами
+/notes - список всех заметок
+/summarize - ручная саммаризация инбокса
+/settings delay <минуты> - настройка задержки саммаризации
+/clear inbox - ручная очистка инбокса
+
+💡 Подсказки:
+- Сообщения в инбоксе группируются автоматически
+- Саммаризация запускается через {delay} минут после последнего сообщения
+- Используйте /summarize для ручного запуска""".format(
+        delay=settings.DEFAULT_SUMMARIZE_DELAY // 60
+    )
+    
+    await message.answer(help_text)
+
+
 @router.message(Command("summarize"))
 async def summarize_handler(message: Message):
     """Ручной запуск саммаризации"""
