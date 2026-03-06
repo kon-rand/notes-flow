@@ -1,7 +1,9 @@
 from typing import Callable, Optional, Tuple
 from aiogram import Router
 from aiogram.types import Message
-from aiogram.types import ForwardOrigin, ForwardOriginUser, ForwardOriginHiddenUser, ForwardOriginChat
+from aiogram.types.message_origin_user import MessageOriginUser
+from aiogram.types.message_origin_hidden_user import MessageOriginHiddenUser
+from aiogram.types.message_origin_chat import MessageOriginChat
 
 from bot.db.file_manager import FileManager
 from bot.db.models import InboxMessage
@@ -17,12 +19,15 @@ def extract_forward_info(message: Message) -> Optional[Tuple[int, Optional[str]]
     
     forward_origin = message.forward_origin
     
-    if isinstance(forward_origin, ForwardOriginUser):
-        return (forward_origin.sender_id, forward_origin.sender_user.name)
-    elif isinstance(forward_origin, ForwardOriginHiddenUser):
-        return (forward_origin.sender_id, forward_origin.sender_user.name)
-    elif isinstance(forward_origin, ForwardOriginChat):
-        return (forward_origin.chat.id, forward_origin.sender_title)
+    if isinstance(forward_origin, MessageOriginUser):
+        sender_user = forward_origin.sender_user
+        sender_name = f"{sender_user.first_name} {sender_user.last_name}" if sender_user.last_name else sender_user.first_name
+        return (sender_user.id, sender_name)
+    elif isinstance(forward_origin, MessageOriginHiddenUser):
+        return (0, forward_origin.sender_user_name)
+    elif isinstance(forward_origin, MessageOriginChat):
+        sender_chat = forward_origin.sender_chat
+        return (sender_chat.id, sender_chat.title)
     
     return None
 
