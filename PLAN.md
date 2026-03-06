@@ -249,7 +249,7 @@ httpx>=0.25.0
 |---|-------|--------|----------|
 | 1 | TICKET-001.md | ✅ | Базовая структура (config.py, models.py, FileManager) |
 | 2 | TICKET-002.md | ✅ | Обработка сообщений (handlers/messages.py) |
-| 3 | TICKET-003.md | ⏳ | Таймеры (SummarizeTimer) |
+| 3 | TICKET-003.md | ✅ | Таймеры (SummarizeTimer) |
 | 4 | TICKET-004.md | ⏳ | Контекстный анализ (ContextAnalyzer) |
 | 5 | TICKET-005.md | ⏳ | Ollama интеграция (utils/ollama_client.py) |
 | 6 | TICKET-006.md | ⏳ | Саммаризатор (handlers/summarizer.py) |
@@ -265,7 +265,7 @@ httpx>=0.25.0
 |---|------|------------|-----------|
 | 1 | Базовая структура | config.py, models.py, FileManager | 🔴 |
 | 2 | Обработка сообщений | handlers/messages.py, FileManager.append_message | 🔴 |
-| 3 | Таймеры | SummarizeTimer, handlers/commands.py | 🔴 |
+| 3 | Таймеры | SummarizeTimer, handlers/commands.py | ✅ |
 | 4 | Контекстный анализ | utils/context_analyzer.py | 🔴 |
 | 5 | Ollama интеграция | utils/ollama_client.py | 🔴 |
 | 6 | Саммаризатор | handlers/summarizer.py | 🔴 |
