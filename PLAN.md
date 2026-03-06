@@ -255,7 +255,7 @@ httpx>=0.25.0
 | 6 | TICKET-006.md | ✅ | Саммаризатор (handlers/summarizer.py) |
 | 7 | TICKET-007.md | ✅ | Команды бота (handlers/commands.py) |
 | 8 | TICKET-008.md | ✅ | Обработка пересылок (forward_origin parsing) |
-| 9 | TICKET-009.md | ⏳ | Тестирование и полировка |
+| 9 | TICKET-009.md | ✅ | Тестирование и полировка |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 

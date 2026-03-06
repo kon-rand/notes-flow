@@ -2,12 +2,11 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
-from aiogram.types import Message, User, Chat
+from aiogram.types import User, Chat
 from aiogram.types.message_origin_user import MessageOriginUser
 from aiogram.types.message_origin_hidden_user import MessageOriginHiddenUser
 from aiogram.types.message_origin_chat import MessageOriginChat
 from bot.db.models import InboxMessage
-from bot.db.file_manager import FileManager
 from handlers.messages import extract_forward_info, message_handler
 
 

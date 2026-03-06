@@ -1,9 +1,7 @@
-import os
-import yaml
+import yaml  # type: ignore[import-untyped]
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-from pydantic import BaseModel
 
 from bot.db.models import InboxMessage, Task, Note
 
@@ -41,7 +39,9 @@ class FileManager:
         except yaml.YAMLError:
             metadata = {}
         items = []
-        item_blocks = parts[2].strip().split("\n---\n## ")
+        # Split by both formats: '\n---\n## ' and '\n## '
+        content = parts[2].strip()
+        item_blocks = content.split("\n## ")
         for block in item_blocks:
             block = block.strip()
             if not block:
@@ -49,8 +49,8 @@ class FileManager:
             lines = block.split("\n")
             if not lines:
                 continue
-            item_id = lines[0].strip()
-            item_data = {}
+            item_id = lines[0].strip().lstrip("#").strip()
+            item_data: dict[str, object] = {}
             for line in lines[1:]:
                 if ":" in line:
                     key, value = line.split(":", 1)

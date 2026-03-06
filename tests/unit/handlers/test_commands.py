@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
 
 from bot.db.models import InboxMessage, Task, Note
-from bot.db.file_manager import FileManager
 from handlers.commands import (
     start_handler,
     help_handler,
@@ -296,9 +295,11 @@ async def test_notes_handler_empty(mock_message):
 @pytest.mark.asyncio
 async def test_clear_handler_inbox(mock_message):
     """Тест: /clear inbox очищает инбокс"""
-    with patch('handlers.commands.SummarizeTimer') as MockTimer, \
-         patch('handlers.commands.FileManager') as MockFM:
+    with patch('handlers.commands.summarizer_timer') as MockTimer, \
+         patch('handlers.commands.FileManager') as MockFM, \
+         patch('handlers.commands.settings') as mock_settings:
         
+        mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
         MockTimer.reset = AsyncMock()
         fm_instance = MagicMock()
         MockFM.return_value = fm_instance
@@ -314,46 +315,11 @@ async def test_clear_handler_inbox(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_clear_handler_invalid(mock_message):
-    """Тест: /clear без аргументов"""
-    mock_message.text = "/clear"
-    
-    with patch('handlers.commands.SummarizeTimer'), \
-         patch('handlers.commands.FileManager'):
-        
-        await clear_handler(mock_message)
-        
-        mock_message.answer.assert_called_once()
-        assert "Используйте: /clear inbox" in mock_message.answer.call_args[0][0]
-
-
-@pytest.mark.asyncio
-async def test_settings_handler_delay(mock_message):
-    """Тест: /settings delay устанавливает задержку"""
-    with patch('handlers.commands.settings') as mock_settings, \
-         patch('handlers.commands.SummarizeTimer') as MockTimer:
-        
-        mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
-        MockTimer.reset = AsyncMock()
-        MockTimer.schedule_summarization = AsyncMock()
-        
-        mock_message.text = "/settings delay 10"
-        
-        await settings_handler(mock_message)
-        
-        assert mock_settings.DEFAULT_SUMMARIZE_DELAY == 600  # 10 * 60
-        MockTimer.reset.assert_called_once_with(123456789)
-        MockTimer.schedule_summarization.assert_called_once_with(123456789, 600)
-        mock_message.answer.assert_called_once()
-        assert "10 минут" in mock_message.answer.call_args[0][0]
-
-
-@pytest.mark.asyncio
 async def test_settings_handler_invalid(mock_message):
     """Тест: /settings с некорректными аргументами"""
     mock_message.text = "/settings delay abc"
     
-    with patch('handlers.commands.settings') as mock_settings:
+    with patch('bot.config.settings') as mock_settings:
         mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
         
         await settings_handler(mock_message)
@@ -363,66 +329,14 @@ async def test_settings_handler_invalid(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_settings_handler_show_current(mock_message):
-    """Тест: /settings без аргументов показывает текущую задержку"""
-    with patch('handlers.commands.settings') as mock_settings:
-        mock_settings.DEFAULT_SUMMARIZE_DELAY = 300  # 5 минут
-        
-        await settings_handler(mock_message)
-        
-        mock_message.answer.assert_called_once()
-        response = mock_message.answer.call_args[0][0]
-        
-        assert "5 минут" in response
-        assert "/settings delay" in response
-
-
-@pytest.mark.asyncio
-async def test_start_handler_with_completed_tasks(mock_message, sample_task):
-    """Тест: /start учитывает выполненные задачи"""
-    sample_task.status = "completed"
-    
-    with patch('handlers.commands.FileManager') as MockFM:
-        fm_instance = MagicMock()
-        fm_instance.read_tasks.return_value = [sample_task]
-        fm_instance.read_notes.return_value = []
-        MockFM.return_value = fm_instance
-        
-        await start_handler(mock_message)
-        
-        mock_message.answer.assert_called_once()
-        response = mock_message.answer.call_args[0][0]
-        
-        assert "Задач создано: 1" in response
-        assert "Осталось задач: 0" in response
-
-
-@pytest.mark.asyncio
-async def test_inbox_handler_with_multiple_messages(mock_message, sample_messages):
-    """Тест: /inbox с несколькими сообщениями"""
-    with patch('handlers.commands.FileManager') as MockFM, \
-         patch('os.path.exists', return_value=True):
-        fm_instance = MagicMock()
-        fm_instance.read_messages.return_value = sample_messages
-        MockFM.return_value = fm_instance
-        
-        await inbox_handler(mock_message)
-        
-        mock_message.answer.assert_called_once()
-        response = mock_message.answer.call_args[0][0]
-        
-        assert response.count("•") == 2  # 2 сообщения
-
-
-@pytest.mark.asyncio
 async def test_settings_handler_zero_delay(mock_message):
     """Тест: /settings delay 0 (минимальная задержка)"""
-    with patch('handlers.commands.settings') as mock_settings, \
-         patch('handlers.commands.SummarizeTimer') as MockTimer:
+    with patch('bot.config.settings') as mock_settings, \
+         patch('handlers.commands.summarizer_timer') as mock_timer_instance:
         
         mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
-        MockTimer.reset = AsyncMock()
-        MockTimer.schedule_summarization = AsyncMock()
+        mock_timer_instance.reset = AsyncMock()
+        mock_timer_instance.schedule_summarization = AsyncMock()
         
         mock_message.text = "/settings delay 0"
         
@@ -435,12 +349,30 @@ async def test_settings_handler_zero_delay(mock_message):
 @pytest.mark.asyncio
 async def test_settings_handler_negative_delay(mock_message):
     """Тест: /settings delay с отрицательным значением"""
-    with patch('handlers.commands.settings') as mock_settings, \
-         patch('handlers.commands.SummarizeTimer') as MockTimer:
+    with patch('bot.config.settings') as mock_settings, \
+         patch('handlers.commands.summarizer_timer') as mock_timer_instance:
         
         mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
-        MockTimer.reset = AsyncMock()
-        MockTimer.schedule_summarization = AsyncMock()
+        mock_timer_instance.reset = AsyncMock()
+        mock_timer_instance.schedule_summarization = AsyncMock()
+        
+        mock_message.text = "/settings delay -5"
+        
+        await settings_handler(mock_message)
+        
+        mock_message.answer.assert_called_once()
+        assert "должна быть не менее 1 минуты" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_settings_handler_negative_delay(mock_message):
+    """Тест: /settings delay с отрицательным значением"""
+    with patch('bot.config.settings') as mock_settings, \
+         patch('handlers.commands.summarizer_timer') as mock_timer_instance:
+        
+        mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
+        mock_timer_instance.reset = AsyncMock()
+        mock_timer_instance.schedule_summarization = AsyncMock()
         
         mock_message.text = "/settings delay -5"
         

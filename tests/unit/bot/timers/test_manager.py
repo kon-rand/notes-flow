@@ -87,18 +87,3 @@ async def test_message_flow():
     print("✓ test_message_flow passed")
 
 
-async def main():
-    print("Running SummarizeTimer tests...\n")
-    
-    await test_creates_task()
-    await test_cancels_previous()
-    await test_reset()
-    await test_multiple_users()
-    await test_reset_nonexistent()
-    await test_message_flow()
-    
-    print("\n✅ All tests passed!")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

@@ -1,12 +1,9 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
-from typing import List
 
 from bot.db.models import InboxMessage
 from bot.db.file_manager import FileManager
-from utils.context_analyzer import ContextAnalyzer
-from utils.ollama_client import OllamaClient
 from handlers.summarizer import auto_summarize
 
 
@@ -88,7 +85,7 @@ async def test_auto_summarize_group_messages(mock_bot, sample_messages, mock_fil
         mock_file_manager.read_messages.return_value = sample_messages
         mock_file_manager.append_task = MagicMock()
         
-        result = await auto_summarize(123, mock_bot)
+        await auto_summarize(123, mock_bot)
         
         analyzer_instance.group_messages.assert_called_once_with(sample_messages)
         client_instance.summarize_group.assert_called_once_with(sample_messages)

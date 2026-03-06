@@ -1,54 +1,106 @@
-import asyncio
-from typing import List
 from datetime import datetime
+from typing import Optional
+
+from aiogram import Bot
 
 from bot.db.file_manager import FileManager
-from bot.db.models import InboxMessage, Task, Note
-from bot.config import settings
+from bot.db.models import Task, Note
+from utils.context_analyzer import ContextAnalyzer
+from utils.ollama_client import OllamaClient
 
 
-async def auto_summarize(user_id: int):
+async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
     """Автоматическая саммаризация сообщений пользователя"""
     file_manager = FileManager()
     
-    # Чтение сообщений из инбокса
     messages = file_manager.read_messages(user_id)
     
     if not messages:
+        if bot:
+            try:
+                await bot.send_message(
+                    user_id, 
+                    "♻️ Инбокс уже пуст"
+                )
+            except Exception:
+                pass
         return
     
-    # Здесь должна быть группировка сообщений (ContextAnalyzer)
-    # Для простоты пока объединяем все сообщения в одну группу
-    groups = [messages]
-    
-    created_items = []
-    
-    for group in groups:
-        if not group:
-            continue
+    try:
+        analyzer = ContextAnalyzer()
+        groups = analyzer.group_messages(messages)
         
-        # Здесь должен быть вызов OllamaClient для анализа
-        # Для простоты пока создаём заметку
-        source_ids = [msg.id for msg in group]
-        content_text = "\n".join(msg.content for msg in group)
+        tasks_created = 0
+        notes_created = 0
+        skipped = 0
+        report = []
         
-        # Создаём заметку (вместо анализа через AI)
-        note = Note(
-            id=f"auto_{datetime.now().timestamp()}",
-            title=f"Автоматическая саммаризация {datetime.now().strftime('%H:%M')}",
-            tags=["auto"],
-            created_at=datetime.now(),
-            source_message_ids=source_ids,
-            content=content_text,
-        )
+        client = OllamaClient()
         
-        file_manager.append_note(user_id, note)
-        created_items.append(f"note:{note.id}")
-    
-    # Очистка инбокса
-    file_manager.clear_messages(user_id)
-    
-    # Отправка отчёта (в реальном проекте)
-    # await bot.send_message(user_id, f"Создано {len(created_items)} элементов")
-    
-    return created_items
+        for i, group in enumerate(groups, 1):
+            result = await client.summarize_group(group)
+            
+            if result.get("action") == "create_task":
+                task = Task(
+                    id=f"task_{i:03d}",
+                    title=result.get("title", f"Задача {i}"),
+                    tags=result.get("tags", []),
+                    content=result.get("content", ""),
+                    source_message_ids=[m.id for m in group],
+                    created_at=datetime.now()
+                )
+                file_manager.append_task(user_id, task)
+                tasks_created += 1
+                report.append(f"✅ Создана задача: {result.get('title', '')}")
+            
+            elif result.get("action") == "create_note":
+                note = Note(
+                    id=f"note_{i:03d}",
+                    title=result.get("title", f"Заметка {i}"),
+                    tags=result.get("tags", []),
+                    content=result.get("content", ""),
+                    source_message_ids=[m.id for m in group],
+                    created_at=datetime.now()
+                )
+                file_manager.append_note(user_id, note)
+                notes_created += 1
+                report.append(f"📝 Создана заметка: {result.get('title', '')}")
+            
+            else:
+                skipped += 1
+                if group:
+                    preview = group[0].content[:50] + "..." if group[0].content else "группа сообщений"
+                    report.append(f"⏭ Пропущено: {preview}")
+        
+        file_manager.clear_messages(user_id)
+        
+        if bot:
+            report_text = f"""♻️ Саммаризация завершена:
+
+✅ Задачи создано: {tasks_created}
+📝 Заметок создано: {notes_created}
+⏭ Пропущено: {skipped}
+
+""" + "\n".join(report)
+            try:
+                await bot.send_message(user_id, report_text.strip())
+            except Exception:
+                pass
+        
+        return {
+            "tasks_created": tasks_created,
+            "notes_created": notes_created,
+            "skipped": skipped,
+            "report": report
+        }
+        
+    except Exception as e:
+        if bot:
+            try:
+                await bot.send_message(
+                    user_id, 
+                    f"❌ Ошибка при саммаризации: {str(e)}"
+                )
+            except Exception:
+                pass
+        return {"error": str(e)}

@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Tuple
+from typing import Optional, Tuple
 from aiogram import Router
 from aiogram.types import Message
 from aiogram.types.message_origin_user import MessageOriginUser
@@ -33,6 +33,8 @@ def extract_forward_info(message: Message) -> Optional[Tuple[int, Optional[str]]
 
 
 async def message_handler(message: Message) -> None:
+    if message.from_user is None:
+        return
     user_id = message.from_user.id
     
     forward_info = extract_forward_info(message)

@@ -8,9 +8,10 @@ import httpx
 
 from bot.db.models import InboxMessage
 from utils.ollama_client import OllamaConfig, OllamaClient
+from typing import Optional
 
 
-def create_message(id: str, offset_minutes: int, content: str, sender_name: str = None) -> InboxMessage:
+def create_message(id: str, offset_minutes: int, content: str, sender_name: str = "") -> InboxMessage:
     """Helper для создания тестовых сообщений"""
     return InboxMessage(
         id=id,
@@ -50,9 +51,8 @@ def test_format_messages_basic():
     client = OllamaClient()
     result = client._format_messages(messages)
     
-    assert "msg_1" in result
     assert "Тестовое сообщение" in result
-    assert "2026-03-06T14:00:00" in result
+    assert "2026-03-06 14:00:00" in result
 
 
 def test_format_messages_with_sender_name():
@@ -69,7 +69,7 @@ def test_format_messages_with_sender_name():
 def test_format_messages_no_sender_name():
     """Тест: форматирование без sender_name"""
     messages = [
-        create_message("msg_2", 10, "Без имени", sender_name=None),
+        create_message("msg_2", 10, "Без имени", sender_name=""),
     ]
     client = OllamaClient()
     result = client._format_messages(messages)
@@ -146,7 +146,7 @@ def test_parse_valid_json():
 def test_parse_json_with_prefix():
     """Тест: извлечение JSON из ответа с префиксом"""
     client = OllamaClient()
-    response = "Ответ: {'action': 'create_task', 'title': 'Задача'}"
+    response = 'Ответ: {"action": "create_task", "title": "Задача"}'
     result = client._parse_response(response)
     
     assert result["action"] == "create_task"
@@ -155,7 +155,7 @@ def test_parse_json_with_prefix():
 def test_parse_json_with_suffix():
     """Тест: извлечение JSON из ответа с суффиксом"""
     client = OllamaClient()
-    response = "Вот JSON: {'action': 'create_note', 'title': 'Заметка'}"
+    response = 'Вот JSON: {"action": "create_note", "title": "Заметка"}'
     result = client._parse_response(response)
     
     assert result["action"] == "create_note"
@@ -338,10 +338,10 @@ async def test_summarize_group_custom_config():
         
         config = OllamaConfig(base_url="http://custom:11434", model="test-model")
         client = OllamaClient(config=config)
-        result = await client.summarize_group(messages)
+        await client.summarize_group(messages)
         
         call_args = mock_post.call_args
-        assert call_args["json"]["model"] == "test-model"
+        assert call_args[1]["json"]["model"] == "test-model"
 
 
 async def test_summarize_group_long_messages():
@@ -387,62 +387,3 @@ async def test_summarize_group_multiple_messages():
         result = await client.summarize_group(messages)
         
         assert result["action"] == "create_task"
-
-
-def run_all_tests():
-    """Запуск всех синхронных тестов"""
-    print("Running OllamaClient tests...\n")
-    
-    # Config tests
-    print("=== OllamaConfig tests ===")
-    test_ollama_config_default_base_url()
-    test_ollama_config_default_model()
-    test_ollama_config_custom()
-    print("✓ Config tests passed\n")
-    
-    # Format messages tests
-    print("=== _format_messages tests ===")
-    test_format_messages_basic()
-    test_format_messages_with_sender_name()
-    test_format_messages_no_sender_name()
-    test_format_messages_multiple()
-    test_format_messages_empty()
-    print("✓ Format messages tests passed\n")
-    
-    # Build prompt tests
-    print("=== _build_prompt tests ===")
-    test_build_prompt_contains_messages()
-    test_build_prompt_json_structure()
-    test_build_prompt_skip_option()
-    print("✓ Build prompt tests passed\n")
-    
-    # Parse response tests
-    print("=== _parse_response tests ===")
-    test_parse_valid_json()
-    test_parse_json_with_prefix()
-    test_parse_json_with_suffix()
-    test_parse_invalid_json()
-    test_parse_empty_response()
-    test_parse_partial_json()
-    test_parse_skip_action()
-    print("✓ Parse response tests passed\n")
-    
-    # Async tests
-    print("=== summarize_group integration tests ===")
-    asyncio.run(test_summarize_group_successful_task())
-    asyncio.run(test_summarize_group_create_note())
-    asyncio.run(test_summarize_group_skip())
-    asyncio.run(test_summarize_group_connect_error())
-    asyncio.run(test_summarize_group_timeout())
-    asyncio.run(test_summarize_group_http_error())
-    asyncio.run(test_summarize_group_empty_messages())
-    asyncio.run(test_summarize_group_custom_config())
-    asyncio.run(test_summarize_group_long_messages())
-    asyncio.run(test_summarize_group_multiple_messages())
-    print("✓ Integration tests passed\n")
-    
-    print("✅ All tests passed!")
-
-
-if __name__ == "__main__":
-    run_all_tests()

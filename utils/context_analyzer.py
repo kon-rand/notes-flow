@@ -1,6 +1,4 @@
 from typing import List, Set
-from datetime import datetime, timedelta
-from collections import defaultdict
 import re
 
 from bot.db.models import InboxMessage
@@ -34,7 +32,7 @@ class ContextAnalyzer:
         current_group = [messages[0]]
         
         for i in range(1, len(messages)):
-            time_diff = (messages[i].timestamp - current_group[-1].timestamp).total_seconds() / 60
+            time_diff = (messages[i].timestamp - current_group[0].timestamp).total_seconds() / 60
             
             if time_diff <= window_minutes:
                 current_group.append(messages[i])
@@ -63,18 +61,18 @@ class ContextAnalyzer:
             r'ещё\s+по\s+теме',
             r'продолж',
             r'связанн',
+            r'связано',
             r'относ',
         ]
         
         def is_continuation(current: InboxMessage, previous: InboxMessage) -> bool:
-            text = f"{current.content} {previous.content}".lower()
+            text = current.content.lower()
             for pattern in continuation_patterns:
                 if re.search(pattern, text):
                     return True
             return False
         
         # Объединение соседних групп
-        result = []
         merged = [groups[0]]
         
         for i in range(1, len(groups)):
@@ -109,6 +107,7 @@ class ContextAnalyzer:
             r'ещё\s+по\s+теме',
             r'продолж',
             r'связанн',
+            r'связано',
             r'относ',
         ]
         

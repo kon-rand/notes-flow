@@ -1,4 +1,3 @@
-import asyncio
 import sys
 sys.path.insert(0, '/home/kuzya/projects/notes-flow')
 
@@ -316,38 +315,3 @@ def test_multiple_groups_merge():
     print("✓ test_multiple_groups_merge passed")
 
 
-def main():
-    print("Running ContextAnalyzer tests...\n")
-    
-    test_group_messages_empty_list()
-    test_group_messages_single_message()
-    test_group_messages_multiple_separate()
-    
-    test_group_by_time_window_basic()
-    test_group_by_time_window_empty()
-    test_group_by_time_window_boundary()
-    test_group_by_time_window_all_same_window()
-    
-    test_get_keywords_basic()
-    test_group_by_similarity_common_words()
-    test_group_by_similarity_no_common_words()
-    test_group_by_similarity_continuation_patterns()
-    
-    test_is_continuation_patterns()
-    test_detect_continuation_all_patterns()
-    
-    test_integration_full_cycle()
-    
-    test_edge_cases_same_timestamp()
-    test_edge_cases_empty_content()
-    test_edge_cases_special_characters()
-    test_edge_cases_long_content()
-    
-    test_group_by_similarity_keyword_extraction()
-    test_multiple_groups_merge()
-    
-    print("\n✅ All tests passed!")
-
-
-if __name__ == "__main__":
-    main()

@@ -1,10 +1,10 @@
+import asyncio
 from aiogram import Router
 from aiogram.types import Message
 from aiogram.filters import Command
-from datetime import datetime
 import os
 
-from bot.timers.manager import SummarizeTimer
+from bot.timers.manager import SummarizeTimer, summarizer_timer
 from bot.db.file_manager import FileManager
 from bot.config import settings
 
@@ -15,6 +15,8 @@ router = Router()
 @router.message(Command("start"))
 async def start_handler(message: Message):
     """Приветствие со статистикой"""
+    if message.from_user is None:
+        return
     user_id = message.from_user.id
     
     try:
@@ -50,6 +52,8 @@ async def start_handler(message: Message):
 @router.message(Command("help"))
 async def help_handler(message: Message):
     """Показать список команд"""
+    if message.from_user is None:
+        return
     help_text = """📌 Доступные команды:
 
 /start - показать статистику и приветствие
@@ -74,6 +78,8 @@ async def help_handler(message: Message):
 async def summarize_handler(message: Message):
     """Ручной запуск саммаризации"""
     from handlers.summarizer import auto_summarize
+    if message.from_user is None:
+        return
     await message.answer("Запуск саммаризации...")
     await auto_summarize(message.from_user.id)
 
@@ -81,7 +87,9 @@ async def summarize_handler(message: Message):
 @router.message(Command("settings"))
 async def settings_handler(message: Message):
     """Настройка задержки саммаризации"""
-    parts = message.text.split()
+    if message.from_user is None:
+        return
+    parts = message.text.split() if message.text else []
     
     if len(parts) > 2 and parts[1] == "delay":
         try:
@@ -96,10 +104,11 @@ async def settings_handler(message: Message):
             settings.DEFAULT_SUMMARIZE_DELAY = delay_seconds
             
             # Сбросить текущий таймер для пользователя
-            await SummarizeTimer.reset(message.from_user.id)
+            from bot.timers.manager import summarizer_timer
+            await summarizer_timer.reset(message.from_user.id)
             
             # Запустить новый таймер с новой задержкой
-            SummarizeTimer.schedule_summarization(message.from_user.id, delay_seconds)
+            asyncio.create_task(summarizer_timer.schedule_summarization(message.from_user.id, delay_seconds))
             
             await message.answer(f"Задержка установлена на {delay_minutes} минут ({delay_seconds} секунд)")
             return
@@ -114,6 +123,8 @@ async def settings_handler(message: Message):
 @router.message(Command("inbox"))
 async def inbox_handler(message: Message):
     """Просмотр текущего инбокса"""
+    if message.from_user is None:
+        return
     user_id = message.from_user.id
     
     if not os.path.exists(f"data/{user_id}/inbox.md"):
@@ -137,6 +148,8 @@ async def inbox_handler(message: Message):
 @router.message(Command("tasks"))
 async def tasks_handler(message: Message):
     """Список задач"""
+    if message.from_user is None:
+        return
     user_id = message.from_user.id
     
     if not os.path.exists(f"data/{user_id}/tasks.md"):
@@ -163,6 +176,8 @@ async def tasks_handler(message: Message):
 @router.message(Command("notes"))
 async def notes_handler(message: Message):
     """Список заметок"""
+    if message.from_user is None:
+        return
     user_id = message.from_user.id
     
     if not os.path.exists(f"data/{user_id}/notes.md"):
@@ -188,7 +203,9 @@ async def notes_handler(message: Message):
 @router.message(Command("clear"))
 async def clear_handler(message: Message):
     """Очистка инбокса"""
-    parts = message.text.split()
+    if message.from_user is None:
+        return
+    parts = message.text.split() if message.text else []
     
     if len(parts) < 2 or parts[1] != "inbox":
         await message.answer("Используйте: /clear inbox")
@@ -197,7 +214,7 @@ async def clear_handler(message: Message):
     user_id = message.from_user.id
     
     # Сбросить таймер
-    await SummarizeTimer.reset(user_id)
+    await summarizer_timer.reset(user_id)
     
     # Очистить инбокс
     file_manager = FileManager()
