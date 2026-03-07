@@ -257,6 +257,7 @@ httpx>=0.25.0
 | 8 | TICKET-008.md | ✅ | Обработка пересылок (forward_origin parsing) |
 | 9 | TICKET-009.md | ✅ | Тестирование и полировка |
 | 10 | TICKET-010.md | ✅ | Документация архитектуры |
+| 11 | TICKET-011.md | ✅ | Деплой через Docker Compose |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 
@@ -273,6 +274,8 @@ httpx>=0.25.0
 | 7 | Команды | handlers/commands.py (/summarize, /inbox, /tasks, /notes, /settings) | 🟡 |
 | 8 | Обработка пересылок | forward_origin parsing | 🔴 |
 | 9 | Тестирование и полировка | - | 🟡 |
+| 10 | Документация архитектуры | documentation/ARCHITECTURE.md | 🟡 |
+| 11 | Деплой через Docker Compose | Dockerfile, docker-compose.yml, DEPLOYMENT.md | 🟡 |
 
 ---
 

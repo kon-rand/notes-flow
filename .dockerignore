@@ -1,0 +1,15 @@
+.env
+data/
+*.md
+!Dockerfile
+tests/
+__pycache__/
+*.pyc
+.git/
+.idea/
+*.log
+venv/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

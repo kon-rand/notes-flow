@@ -121,7 +121,71 @@ content:
 - ✅ Настройка задержки саммаризации
 - ✅ Очистка инбокса вручную
 
-## Хранение данных
+## Деплой
+
+### Локальный деплой
+
+1. Создайте директорию для данных:
+```bash
+sudo mkdir -p /share/services/notes-flow/data
+sudo mkdir -p /share/services/notes-flow/logs
+sudo chown -R $(whoami) /share/services/notes-flow
+```
+
+2. Настройте переменные окружения:
+```bash
+cp .env.example .env
+# Отредактируйте .env
+```
+
+3. Запустите бот с Ollama:
+```bash
+docker-compose -f docker-compose.local.yml up -d
+```
+
+4. Просмотр логов:
+```bash
+docker-compose -f docker-compose.local.yml logs -f
+```
+
+5. Остановка:
+```bash
+docker-compose -f docker-compose.local.yml down
+```
+
+### Облачный деплой
+
+1. Настройте переменные окружения:
+```bash
+cp .env.example .env
+# Отредактируйте .env с URL удалённого Ollama
+```
+
+2. Запустите бот:
+```bash
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+3. Проверка статуса:
+```bash
+docker-compose -f docker-compose.prod.yml ps
+```
+
+4. Проверка healthcheck:
+```bash
+docker inspect notes-flow-prod --format='{{.State.Health.Status}}'
+```
+
+### Конфигурация
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `TELEGRAM_BOT_TOKEN` | Токен вашего бота от @BotFather | (обязательно) |
+| `OLLAMA_BASE_URL` | URL сервера Ollama | `http://localhost:11434` |
+| `OLLAMA_MODEL` | Название модели для саммаризации | `llama3` |
+| `DEFAULT_SUMMARIZE_DELAY` | Задержка перед саммаризацией в секундах | `300` (5 минут) |
+
+### Хранение данных
 
 Данные хранятся в структуре:
 ```
