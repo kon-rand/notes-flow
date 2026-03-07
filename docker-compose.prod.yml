@@ -8,8 +8,8 @@ services:
     container_name: notes-flow-prod
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://127.0.0.1:8080/v1}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-unsloth/Qwen3.5-35B-A3B}
       - DEFAULT_SUMMARIZE_DELAY=${DEFAULT_SUMMARIZE_DELAY:-300}
     restart: always
     healthcheck:
