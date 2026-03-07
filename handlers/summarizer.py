@@ -1,12 +1,14 @@
 from datetime import datetime
 from typing import Optional
 
-from aiogram import Bot
+from aiogram import Bot, Router
 
 from bot.db.file_manager import FileManager
 from bot.db.models import Task, Note
 from utils.context_analyzer import ContextAnalyzer
 from utils.ollama_client import OllamaClient
+
+router = Router()
 
 
 async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
