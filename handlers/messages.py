@@ -13,6 +13,13 @@ router = Router()
 file_manager = FileManager()
 
 
+async def no_command(message: Message) -> bool:
+    """Filter to exclude all commands from inbox handler"""
+    if message.text is None:
+        return False
+    return not message.text.startswith('/')
+
+
 def extract_forward_info(message: Message) -> Optional[Tuple[int, Optional[str]]]:
     if not message.forward_origin:
         return None
@@ -24,7 +31,7 @@ def extract_forward_info(message: Message) -> Optional[Tuple[int, Optional[str]]
         sender_name = f"{sender_user.first_name} {sender_user.last_name}" if sender_user.last_name else sender_user.first_name
         return (sender_user.id, sender_name)
     elif isinstance(forward_origin, MessageOriginHiddenUser):
-        return (user_id, forward_origin.sender_user_name)
+        return (message.from_user.id, forward_origin.sender_user_name)
     elif isinstance(forward_origin, MessageOriginChat):
         sender_chat = forward_origin.sender_chat
         return (sender_chat.id, sender_chat.title)
@@ -32,7 +39,7 @@ def extract_forward_info(message: Message) -> Optional[Tuple[int, Optional[str]]
     return None
 
 
-@router.message()
+@router.message(no_command)
 async def message_handler(message: Message) -> None:
     if message.from_user is None:
         return

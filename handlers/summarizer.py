@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Optional
 
 from aiogram import Bot, Router
+from aiogram.types import Message
+from aiogram.filters import Command
 
 from bot.db.file_manager import FileManager
 from bot.db.models import Task, Note
@@ -9,6 +11,15 @@ from utils.context_analyzer import ContextAnalyzer
 from utils.ollama_client import OllamaClient
 
 router = Router()
+
+
+@router.message(Command("summarize"))
+async def summarize_command(message: Message, bot: Bot):
+    """Обработчик команды /summarize"""
+    if message.from_user is None:
+        return
+    await message.answer("Запуск саммаризации...")
+    await auto_summarize(message.from_user.id, bot)
 
 
 async def auto_summarize(user_id: int, bot: Optional[Bot] = None):

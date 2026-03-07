@@ -74,14 +74,7 @@ async def help_handler(message: Message):
     await message.answer(help_text)
 
 
-@router.message(Command("summarize"))
-async def summarize_handler(message: Message):
-    """Ручной запуск саммаризации"""
-    from handlers.summarizer import auto_summarize
-    if message.from_user is None:
-        return
-    await message.answer("Запуск саммаризации...")
-    await auto_summarize(message.from_user.id)
+
 
 
 @router.message(Command("settings"))
