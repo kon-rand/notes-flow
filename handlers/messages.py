@@ -24,7 +24,7 @@ def extract_forward_info(message: Message) -> Optional[Tuple[int, Optional[str]]
         sender_name = f"{sender_user.first_name} {sender_user.last_name}" if sender_user.last_name else sender_user.first_name
         return (sender_user.id, sender_name)
     elif isinstance(forward_origin, MessageOriginHiddenUser):
-        return (0, forward_origin.sender_user_name)
+        return (user_id, forward_origin.sender_user_name)
     elif isinstance(forward_origin, MessageOriginChat):
         sender_chat = forward_origin.sender_chat
         return (sender_chat.id, sender_chat.title)
@@ -32,6 +32,7 @@ def extract_forward_info(message: Message) -> Optional[Tuple[int, Optional[str]]
     return None
 
 
+@router.message()
 async def message_handler(message: Message) -> None:
     if message.from_user is None:
         return
@@ -47,6 +48,8 @@ async def message_handler(message: Message) -> None:
     
     content = message.text or str(message.caption)
     
+    print(f"DEBUG: User {user_id}, Forward: {forward_info}, Sender: {sender_name}, Content: {content[:50]}")
+    
     inbox_message = InboxMessage(
         id=str(message.message_id),
         timestamp=message.date,
@@ -58,3 +61,4 @@ async def message_handler(message: Message) -> None:
     )
     
     file_manager.append_message(user_id, inbox_message)
+    print(f"DEBUG: Saved message {message.message_id} for user {user_id}")
