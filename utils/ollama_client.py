@@ -17,7 +17,7 @@ class OpenAIConfig(BaseModel):
 class OpenAIClient:
     def __init__(self, config: Optional[OpenAIConfig] = None):
         self.config = config or OpenAIConfig()
-        self.client = httpx.AsyncClient(base_url=self.config.base_url, timeout=120.0)
+        self.client = httpx.AsyncClient(base_url=self.config.base_url, timeout=300.0)
 
     async def summarize_group(self, messages: List[InboxMessage]) -> Dict[str, Any]:
         """Анализ группы сообщений через OpenAI-compatible API"""

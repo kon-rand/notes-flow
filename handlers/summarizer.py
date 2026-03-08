@@ -103,12 +103,15 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
                     preview = group[0].content[:50] + "..." if group[0].content else "группа сообщений"
                     report.append(f"⏭ Пропущено: {preview}")
         
-        logger.info(f"💾 Сохранение backup перед очисткой инбокса")
-        backup_path = file_manager.save_backup(user_id)
-        logger.info(f"   Backup сохранен: {backup_path}")
-        
-        file_manager.clear_messages(user_id)
-        logger.info(f"🗑️ Очистка инбокса выполнена")
+        if tasks_created > 0 or notes_created > 0:
+            logger.info(f"💾 Сохранение backup перед очисткой инбокса")
+            backup_path = file_manager.save_backup(user_id)
+            logger.info(f"   Backup сохранен: {backup_path}")
+            
+            file_manager.clear_messages(user_id)
+            logger.info(f"🗑️ Очистка инбокса выполнена")
+        else:
+            logger.warning(f"⚠️ Ничего не создано, инбокс не очищается")
         
         if bot:
             report_text = f"""♻️ Саммаризация завершена:
