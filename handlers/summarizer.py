@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 import logging
+import traceback
 
 from aiogram import Bot, Router
 from aiogram.types import Message
@@ -10,6 +11,7 @@ from bot.db.file_manager import FileManager
 from bot.db.models import Task, Note
 from utils.context_analyzer import ContextAnalyzer
 from utils.ollama_client import OpenAIClient, OpenAIConfig
+from utils.error_types import LLMTimeoutError, LLMNetworkError, LLMResponseError, LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -133,16 +135,69 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
             "report": report
         }
         
-    except Exception as e:
-        logger.error(f"❌ Ошибка при саммаризации: {e}")
+    except LLMTimeoutError as e:
+        logger.error(f"❌ Таймаут LLM: {str(e)}")
+        logger.error(f"   Stack:\n{traceback.format_exc()}")
         backup_path = file_manager.save_backup(user_id)
         logger.info(f"💾 Backup сохранен при ошибке: {backup_path}")
         if bot:
             try:
                 await bot.send_message(
-                    user_id, 
-                    f"❌ Ошибка при саммаризации: {str(e)}\n\n📦 Ваши сообщения сохранены в backup"
+                    user_id,
+                    "❌ Таймаут при обращении к LLM\n\n"
+                    "💡 Ваши сообщения сохранены и будут обработаны позже.\n"
+                    "🔄 Попробуйте /summarize снова через 5-10 минут."
                 )
             except Exception:
                 pass
-        return {"error": str(e)}
+        return {"error": "timeout", "message": str(e)}
+    
+    except LLMNetworkError as e:
+        logger.error(f"❌ Сетевая ошибка LLM: {str(e)}")
+        logger.error(f"   Stack:\n{traceback.format_exc()}")
+        backup_path = file_manager.save_backup(user_id)
+        logger.info(f"💾 Backup сохранен при ошибке: {backup_path}")
+        if bot:
+            try:
+                await bot.send_message(
+                    user_id,
+                    "❌ Сетевая ошибка при обращении к LLM\n\n"
+                    "💡 Проверьте соединение и попробуйте снова."
+                )
+            except Exception:
+                pass
+        return {"error": "network", "message": str(e)}
+    
+    except LLMResponseError as e:
+        logger.error(f"❌ Ошибка ответа LLM: {str(e)}")
+        logger.error(f"   Stack:\n{traceback.format_exc()}")
+        backup_path = file_manager.save_backup(user_id)
+        logger.info(f"💾 Backup сохранен при ошибке: {backup_path}")
+        if bot:
+            try:
+                await bot.send_message(
+                    user_id,
+                    f"❌ Ошибка ответа от LLM: {str(e)}\n\n"
+                    "💡 Ваши сообщения сохранены.\n"
+                    "🔄 Попробуйте /summarize снова."
+                )
+            except Exception:
+                pass
+        return {"error": "response", "message": str(e)}
+    
+    except LLMError as e:
+        logger.error(f"❌ Ошибка LLM: {str(e)}")
+        logger.error(f"   Stack:\n{traceback.format_exc()}")
+        backup_path = file_manager.save_backup(user_id)
+        logger.info(f"💾 Backup сохранен при ошибке: {backup_path}")
+        if bot:
+            try:
+                await bot.send_message(
+                    user_id,
+                    f"❌ Ошибка: {str(e)}\n\n"
+                    "💡 Ваши сообщения сохранены.\n"
+                    "🔄 Попробуйте /summarize снова."
+                )
+            except Exception:
+                pass
+        return {"error": "unknown", "message": str(e)}

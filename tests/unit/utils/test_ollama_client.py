@@ -8,6 +8,7 @@ import httpx
 
 from bot.db.models import InboxMessage
 from utils.ollama_client import OpenAIConfig, OpenAIClient
+from utils.error_types import LLMTimeoutError, LLMNetworkError, LLMResponseError, LLMError
 from typing import Optional
 
 

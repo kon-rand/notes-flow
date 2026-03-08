@@ -1,190 +1,180 @@
-# TICKET-013: Исправление саммаризатора
-
-## Название этапа
-Исправление обработки пересылок и саммаризации
+# TICKET-013: Исправление обработки ошибок при таймауте LLM
 
 ## Описание задачи
-Бот некорректно обрабатывает пересылаемые сообщения — они не попадают в inbox и не создаются задачи из них. Необходимо исправить логику обработки `message.forwarded` и убедиться, что все сообщения корректно обрабатываются.
 
-## Приоритет
-🟡 средний
+При запросе к LLM, который падает по таймауту, сообщения из инбокса теряются. Необходимо:
+1. Не очищать инбокс при ошибках (таймаут, сетевые ошибки, ошибки модели)
+2. Выводить понятную ошибку пользователю в чат
+3. Сохранять backup перед возвратом ошибки
 
-## Компоненты для реализации
+## Текущая проблема
 
-### 1. Анализ текущей проблемы
-- Проверить, как обрабатываются forwarded сообщения
-- Найти место, где сообщения пропускаются
-- Проверить логи обработки в `handlers/messages.py`
+В `handlers/summarizer.py:136-147` функция `auto_summarize` перехватывает все исключения, но:
+- Сообщения из инбокса НЕ очищаются при ошибке (это хорошо)
+- Однако backup создается, но сообщения остаются в инбоксе
+- Пользователь не понимает, что произошло
+- При следующем `/summarize` те же сообщения будут пытаться обработаться снова
 
-### 2. Исправление обработки пересылок
-- Убедиться, что forwarded сообщения тоже добавляются в inbox
-- Проверить обработку `message.forwarded` атрибута
-- Добавить логи для отладки
+## Требования
 
-### 3. Тестирование
-- Написать тесты для forwarded сообщений
-- Проверить, что сообщения корректно сохраняются
-- Протестировать саммаризацию с forwarded сообщениями
+### 1. Разделение типов ошибок
+
+В `handlers/summarizer.py:136` нужно разделить обработку ошибок:
+
+**Критические ошибки (инбокс НЕ очищать):**
+- Таймаут запроса к LLM
+- Сетевые ошибки (connection error, timeout)
+- Ошибки парсинга ответа LLM
+- Ошибки модели (invalid response format)
+
+**Успешная обработка (инбокс очищать):**
+- LLM вернула ответ, но action=skip для всех групп
+- В этом случае сообщения можно считать "обработанными" (даже если пропущенными)
+
+### 2. Улучшение сообщений об ошибках
+
+При критических ошибках отправлять пользователю:
+
+```
+❌ Ошибка при саммаризации: [детали ошибки]
+
+💡 Ваши сообщения сохранены и будут обработаны позже.
+🔄 Попробуйте /summarize снова через несколько минут.
+
+Если проблема повторится, проверьте:
+- Стабильность интернет-соединения
+- Доступность LLM сервера
+```
+
+### 3. Логирование
+
+Добавить детальное логирование для всех типов ошибок:
+
+```python
+# В обработчике ошибок
+logger.error(f"❌ Критическая ошибка при саммаризации: {error_type}: {str(e)}")
+logger.error(f"   Сообщений в инбоксе: {len(messages)}")
+logger.error(f"   ID сообщений: {[m.id for m in messages]}")
+logger.error(f"   Stack trace: {traceback.format_exc()}")
+```
+
+### 4. Тестирование
+
+Создать тесты для всех сценариев ошибок:
+
+1. **test_summarizer_timeout_error** - Таймаут запроса к LLM
+2. **test_summarizer_network_error** - Сетевая ошибка
+3. **test_summarizer_invalid_response** - Неверный формат ответа LLM
+4. **test_summarizer_success_with_skip** - Успешная обработка, все пропущено
+5. **test_summarizer_error_inbox_preserved** - При ошибке инбокс не очищается
 
 ## Технические детали
 
-### Проблема с обработкой пересылок
+### Пример кода для обработки ошибок
 
-**Текущий код в `handlers/messages.py`:**
 ```python
-@router.message(F.text)
-async def handle_message(message: Message):
-    """Обработка входящих сообщений."""
-    user_id = message.from_user.id
-    text = message.text
+import traceback
+from urllib3.exceptions import MaxRetryError, ReadTimeoutError
+import requests.exceptions
+
+async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
+    # ... код до try ...
     
-    # Сохраняем в inbox
-    await db.add_to_inbox(user_id, text)
+    try:
+        # Основная логика
+        for i, group in enumerate(groups, 1):
+            result = await client.summarize_group(group)
+            # ... обработка результата ...
     
-    # Создаем задачу, если это вопрос
-    if is_task_question(text):
-        await db.add_task(user_id, text)
+    except (ReadTimeoutError, requests.exceptions.Timeout, asyncio.TimeoutError) as e:
+        logger.error(f"❌ Таймаут запроса к LLM: {str(e)}")
+        if bot:
+            await bot.send_message(user_id, 
+                "❌ Таймаут при обращении к LLM\n\n"
+                "💡 Ваши сообщения сохранены и будут обработаны позже.\n"
+                "🔄 Попробуйте /summarize снова через 5-10 минут."
+            )
+        return {"error": "timeout", "message": "timeout"}
+    
+    except MaxRetryError as e:
+        logger.error(f"❌ Сетевая ошибка: {str(e)}")
+        if bot:
+            await bot.send_message(user_id,
+                "❌ Сетевая ошибка при обращении к LLM\n\n"
+                "💡 Проверьте соединение и попробуйте снова."
+            )
+        return {"error": "network", "message": str(e)}
+    
+    except Exception as e:
+        logger.error(f"❌ Неожиданная ошибка: {type(e).__name__}: {str(e)}")
+        logger.error(f"   Stack: {traceback.format_exc()}")
+        if bot:
+            await bot.send_message(user_id,
+                f"❌ Ошибка: {str(e)}\n\n"
+                "💡 Ваши сообщения сохранены.\n"
+                "🔄 Попробуйте /summarize снова."
+            )
+        return {"error": "unknown", "message": str(e)}
 ```
 
-**Проблема:** Код не проверяет `message.forwarded`, поэтому forwarded сообщения могут обрабатываться некорректно.
+### Классификация ошибок
 
-**Решение:**
+Создать enum для типов ошибок:
+
 ```python
-@router.message(F.text)
-async def handle_message(message: Message):
-    """Обработка входящих сообщений."""
-    user_id = message.from_user.id
-    text = message.text
-    
-    # Проверяем, это forwarded сообщение?
-    is_forwarded = message.forwarded is not None
-    
-    # Сохраняем в inbox
-    await db.add_to_inbox(user_id, text, is_forwarded=is_forwarded)
-    
-    # Создаем задачу, если это вопрос
-    if is_task_question(text):
-        await db.add_task(user_id, text)
+from enum import Enum
+
+class SummarizationErrorType(Enum):
+    TIMEOUT = "timeout"
+    NETWORK = "network"
+    INVALID_RESPONSE = "invalid_response"
+    PARSING_ERROR = "parsing_error"
+    UNKNOWN = "unknown"
 ```
 
-### Примеры forwarded сообщений
+## Приоритет
 
-**Telegram API структура forwarded сообщения:**
-```python
-message.forwarded = {
-    "date": 1234567890,
-    "from": {"id": 123, "is_bot": False, "first_name": "User"},
-    "chat": {"id": 456, "type": "private", "title": "User"},
-    "text": "Текст сообщения"
-}
-```
-
-### Тесты
-
-**Тест для forwarded сообщений:**
-```python
-async def test_forwarded_message_handling():
-    """Тест обработки пересылаемых сообщений."""
-    # Создаем mock forwarded message
-    from unittest.mock import MagicMock
-    
-    mock_message = MagicMock()
-    mock_message.text = "Пересланное сообщение"
-    mock_message.from_user.id = 123
-    mock_message.forwarded = {"date": 1234567890, "from": {"id": 456}}
-    
-    # Вызываем handler
-    await handle_message(mock_message)
-    
-    # Проверяем, что сообщение добавлено в inbox
-    inbox = await db.get_inbox(123)
-    assert len(inbox) == 1
-    assert inbox[0]["text"] == "Пересланное сообщение"
-```
-
-## Требования к тестированию
-
-1. **Тесты forwarded сообщений:**
-   - [ ] `test_forwarded_message_handling` — проверка обработки пересылок
-   - [ ] `test_forwarded_message_in_inbox` — проверка сохранения в inbox
-   - [ ] `test_forwarded_message_task_creation` — проверка создания задач
-
-2. **Интеграционные тесты:**
-   - [ ] Отправить пересланное сообщение через Telegram
-   - [ ] Проверить, что оно появилось в inbox
-   - [ ] Проверить саммаризацию с forwarded сообщениями
-
-3. **Ручное тестирование:**
-   - [ ] Переслать сообщение самому себе
-   - [ ] Проверить `/inbox` команду
-   - [ ] Проверить `/summarize` команду
-
-## Обновление документации
-
-После исправления обновить:
-- `README.md` — секция "Обработка сообщений"
-- `docs/architecture.md` — секция "Обработка пересылок"
-- Документацию к `handlers/messages.py`
+🔴 **Высокий** - Критично для UX, пользователи теряют данные
 
 ## Критерии приемки
 
-- [ ] Forwarded сообщения корректно добавляются в inbox
-- [ ] Задачи создаются из forwarded сообщений
-- [ ] Саммаризация работает с forwarded сообщениями
-- [ ] Все тесты проходят
-- [ ] Логирование работает корректно
+- [ ] При таймауте LLM инбокс НЕ очищается
+- [ ] Пользователь получает понятное сообщение об ошибке
+- [ ] Backup сохраняется при всех типах ошибок
+- [ ] Все сообщения логируются с деталями
+- [ ] Тесты покрывают все сценарии ошибок
+- [ ] При успешной обработке (даже с action=skip) инбокс очищается
+- [ ] После исправления ошибки пользователь может повторить `/summarize`
 
-## Примеры кода для реализации
+## Связанные файлы
 
-### Обработка forwarded в `handlers/messages.py`:
-```python
-@router.message(F.text)
-async def handle_message(message: Message):
-    """Обработка входящих сообщений."""
-    user_id = message.from_user.id
-    text = message.text
-    
-    # Проверяем, это forwarded сообщение?
-    is_forwarded = bool(message.forwarded)
-    
-    # Сохраняем в inbox
-    await db.add_to_inbox(user_id, text, is_forwarded=is_forwarded)
-    
-    # Создаем задачу, если это вопрос
-    if is_task_question(text):
-        await db.add_task(user_id, text)
-    
-    # Отвечаем подтверждением
-    await message.answer("✓ Сообщение получено")
+- `handlers/summarizer.py` - Основная логика обработки
+- `utils/ollama_client.py` - Клиент для запросов к LLM
+- `tests/integration/test_summarizer_integration.py` - Интеграционные тесты
+- `tests/unit/utils/test_ollama_client.py` - Тесты клиента
+
+## Примеры ошибок
+
+### Таймаут (сейчас 120s, нужно увеличить до 300s)
+```
+ReadTimeoutError: HTTPSConnectionPool(host='127.0.0.1', port=8080): 
+Read timed out. (timeout=120.0)
 ```
 
-### Обновление модели в `bot/db/models.py`:
-```python
-class InboxMessage(BaseModel):
-    id: int
-    user_id: int
-    text: str
-    timestamp: datetime
-    is_forwarded: bool = False  # Новый атрибут
+### Сетевая ошибка
+```
+MaxRetryError: HTTPSConnectionPool(host='127.0.0.1', port=8080): 
+Max retries exceeded with url: /chat/completions 
+(Caused by NewConnectionError(...))
 ```
 
-### Обновление БД в `bot/db/file_manager.py`:
-```python
-async def add_to_inbox(self, user_id: int, text: str, is_forwarded: bool = False):
-    """Добавить сообщение в inbox."""
-    message = {
-        "id": len(self.inboxes[user_id]) + 1,
-        "user_id": user_id,
-        "text": text,
-        "timestamp": datetime.now().isoformat(),
-        "is_forwarded": is_forwarded  # Сохраняем флаг
-    }
-    self.inboxes[user_id].append(message)
-    self._save_inboxes()
+### Неверный формат ответа
+```
+JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2
 ```
 
 ## Примечания
 
-- Forwarded сообщения могут приходить из разных источников (личных чатов, групп, каналов)
-- Важно сохранять метаданные forwarded (от кого, когда)
-- Могут потребоваться дополнительные проверки на валидность forwarded данных
+- Увеличить timeout в `utils/ollama_client.py` с 120 до 300 секунд
+- Рассмотреть возможность реализации retry-механизма с экспоненциальной задержкой
+- Добавить метрики для отслеживания частоты ошибок

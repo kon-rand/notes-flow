@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from bot.config import settings
 from bot.db.models import InboxMessage
+from utils.error_types import LLMError, LLMTimeoutError, LLMNetworkError, LLMResponseError
 
 logger = logging.getLogger(__name__)
 
@@ -66,17 +67,17 @@ class OpenAIClient:
             return parsed
         except httpx.ConnectError as e:
             logger.error(f"❌ ConnectError: {e}")
-            return {"action": "skip", "reason": "API not available"}
+            raise LLMNetworkError("LLM API not available")
         except httpx.TimeoutException as e:
             logger.error(f"❌ TimeoutException: {e}")
-            return {"action": "skip", "reason": "Request timeout"}
+            raise LLMTimeoutError(f"Request timeout after {self.client.timeout}s")
         except httpx.HTTPStatusError as e:
             logger.error(f"❌ HTTPStatusError: {e.response.status_code} - {e.response.text[:200]}")
-            return {"action": "skip", "reason": f"HTTP error: {e.response.status_code}"}
+            raise LLMResponseError(f"HTTP error: {e.response.status_code}")
         except Exception as e:
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.error(f"❌ Exception после {elapsed:.1f}с: {type(e).__name__}: {e}")
-            return {"action": "skip", "reason": f"Error: {type(e).__name__}"}
+            raise LLMError(f"Unexpected error: {type(e).__name__}")
         finally:
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
