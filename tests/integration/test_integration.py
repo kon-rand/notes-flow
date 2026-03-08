@@ -10,7 +10,7 @@ from pathlib import Path
 
 from bot.db.models import InboxMessage, Task, Note
 from bot.db.file_manager import FileManager
-from utils.ollama_client import OllamaClient
+from utils.ollama_client import OpenAIClient
 from utils.context_analyzer import ContextAnalyzer
 from handlers.summarizer import auto_summarize
 
@@ -180,8 +180,8 @@ class TestFileManagerIntegration:
         assert messages[0].content == sample_message.content
 
 
-class TestOllamaClientIntegration:
-    """Integration tests for OllamaClient with error handling"""
+class TestOpenAIClientIntegration:
+    """Integration tests for OpenAIClient with error handling"""
 
     @pytest.mark.asyncio
     async def test_summarize_with_connect_error(self, clean_data_dir):
@@ -201,11 +201,11 @@ class TestOllamaClientIntegration:
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.side_effect = httpx.ConnectError("Connection refused")
             
-            client = OllamaClient()
+            client = OpenAIClient()
             result = await client.summarize_group(messages)
             
             assert result["action"] == "skip"
-            assert "Ollama not available" in result["reason"]
+            assert "API not available" in result["reason"]
 
     @pytest.mark.asyncio
     async def test_summarize_with_timeout(self, clean_data_dir):
@@ -225,7 +225,7 @@ class TestOllamaClientIntegration:
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.side_effect = httpx.TimeoutException("Timeout")
             
-            client = OllamaClient()
+            client = OpenAIClient()
             result = await client.summarize_group(messages)
             
             assert result["action"] == "skip"
@@ -256,7 +256,7 @@ class TestOllamaClientIntegration:
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
             
-            client = OllamaClient()
+            client = OpenAIClient()
             result = await client.summarize_group(messages)
             
             assert result["action"] == "skip"
@@ -265,7 +265,7 @@ class TestOllamaClientIntegration:
     @pytest.mark.asyncio
     async def test_summarize_empty_messages(self, clean_data_dir):
         """Test: empty messages → skip"""
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group([])
         
         assert result["action"] == "skip"
@@ -287,16 +287,22 @@ class TestOllamaClientIntegration:
         ]
         
         mock_response = {
-            "response": '{"action": "create_task", "title": "Подготовить отчёт", "tags": ["работа"], "content": "Создать отчёт", "reason": "Есть задача"}'
+            "choices": [{
+                "message": {
+                    "content": '{"action": "create_task", "title": "Подготовить отчёт", "tags": ["работа"], "content": "Создать отчёт", "reason": "Есть задача"}'
+                }
+            }]
         }
         
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = MagicMock(
+                status_code=200,
+                text=mock_response["choices"][0]["message"]["content"],
                 json=MagicMock(return_value=mock_response),
                 raise_for_status=MagicMock()
             )
             
-            client = OllamaClient()
+            client = OpenAIClient()
             result = await client.summarize_group(messages)
             
             assert result["action"] == "create_task"
@@ -419,13 +425,19 @@ class TestAutoSummarizeIntegration:
             fm.append_message(user_id, msg)
         
         mock_response = {
-            "response": '{"action": "create_task", "title": "Подготовить отчёт по проекту", "tags": ["работа"], "content": "Создать отчёт", "reason": "Есть задача"}'
+            "choices": [{
+                "message": {
+                    "content": '{"action": "create_task", "title": "Подготовить отчёт по проекту", "tags": ["работа"], "content": "Создать отчёт", "reason": "Есть задача"}'
+                }
+            }]
         }
         
         mock_bot = AsyncMock()
         
         with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_post.return_value = MagicMock(
+                status_code=200,
+                text=mock_response["choices"][0]["message"]["content"],
                 json=MagicMock(return_value=mock_response),
                 raise_for_status=MagicMock()
             )
@@ -519,10 +531,18 @@ class TestAutoSummarizeIntegration:
             fm.append_message(user_id, msg)
         
         mock_response_task = {
-            "response": '{"action": "create_task", "title": "Купить продукты", "tags": ["покупки"], "content": "Купить продукты", "reason": "Задача"}'
+            "choices": [{
+                "message": {
+                    "content": '{"action": "create_task", "title": "Купить продукты", "tags": ["покупки"], "content": "Купить продукты", "reason": "Задача"}'
+                }
+            }]
         }
         mock_response_note = {
-            "response": '{"action": "create_note", "title": "Идея async/await", "tags": ["идеи"], "content": "Использовать async/await", "reason": "Заметка"}'
+            "choices": [{
+                "message": {
+                    "content": '{"action": "create_note", "title": "Идея async/await", "tags": ["идеи"], "content": "Использовать async/await", "reason": "Заметка"}'
+                }
+            }]
         }
         
         mock_bot = AsyncMock()
@@ -820,7 +840,11 @@ async def test_end_to_end_message_flow(clean_data_dir):
     assert len(messages) == 1
     
     mock_response = {
-        "response": '{"action": "create_task", "title": "Подготовить отчёт по проекту", "tags": ["работа", "отчёт"], "content": "Подготовить отчёт до завтра к обеду", "reason": "Есть задача"}'
+        "choices": [{
+            "message": {
+                "content": '{"action": "create_task", "title": "Подготовить отчёт по проекту", "tags": ["работа", "отчёт"], "content": "Подготовить отчёт до завтра к обеду", "reason": "Есть задача"}'
+            }
+        }]
     }
     
     mock_bot = AsyncMock()

@@ -27,13 +27,13 @@ def create_message(id: str, offset_minutes: int, content: str, sender_name: str 
 def test_openai_config_default_base_url():
     """Тест: значение по умолчанию base_url"""
     config = OpenAIConfig()
-    assert config.base_url == "http://localhost:11434"
+    assert config.base_url == "http://127.0.0.1:8080"
 
 
 def test_openai_config_default_model():
     """Тест: значение по умолчанию model"""
     config = OpenAIConfig()
-    assert config.model == "llama3"
+    assert config.model == "unsloth/Qwen3.5-35B-A3B"
 
 
 def test_openai_config_custom():
@@ -200,7 +200,7 @@ async def test_summarize_group_successful_task():
     ]
     
     mock_response = {
-        "response": '{"action": "create_task", "title": "Подготовить отчёт", "tags": ["работа"], "content": "Сделать отчёт", "reason": "Есть задача"}'
+        "choices": [{"message": {"content": '{"action": "create_task", "title": "Подготовить отчёт", "tags": ["работа"], "content": "Сделать отчёт", "reason": "Есть задача"}'}}]
     }
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
@@ -224,7 +224,7 @@ async def test_summarize_group_create_note():
     ]
     
     mock_response = {
-        "response": '{"action": "create_note", "title": "Идея async/await", "tags": ["идеи"], "content": "Использовать async/await", "reason": "Ценная информация"}'
+        "choices": [{"message": {"content": '{"action": "create_note", "title": "Идея async/await", "tags": ["идеи"], "content": "Использовать async/await", "reason": "Ценная информация"}'}}]
     }
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
@@ -246,7 +246,7 @@ async def test_summarize_group_skip():
         create_message("msg_1", 0, "Просто сообщение"),
     ]
     
-    mock_response = {"response": '{"action": "skip"}'}
+    mock_response = {"choices": [{"message": {"content": '{"action": "skip"}'}}]}
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = MagicMock(
@@ -274,7 +274,7 @@ async def test_summarize_group_connect_error():
         result = await client.summarize_group(messages)
         
         assert result["action"] == "skip"
-        assert result["reason"] == "Ollama not available"
+        assert result["reason"] == "API not available"
 
 
 async def test_summarize_group_timeout():
@@ -328,7 +328,7 @@ async def test_summarize_group_custom_config():
         create_message("msg_1", 0, "Тест"),
     ]
     
-    mock_response = {"response": '{"action": "skip"}'}
+    mock_response = {"choices": [{"message": {"content": '{"action": "skip"}'}}]}
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = MagicMock(
@@ -336,7 +336,7 @@ async def test_summarize_group_custom_config():
             raise_for_status=MagicMock()
         )
         
-        config = OllamaConfig(base_url="http://custom:11434", model="test-model")
+        config = OpenAIConfig(base_url="http://custom:11434", model="test-model")
         client = OpenAIClient(config=config)
         await client.summarize_group(messages)
         
@@ -351,7 +351,7 @@ async def test_summarize_group_long_messages():
         create_message("msg_1", 0, long_content),
     ]
     
-    mock_response = {"response": '{"action": "skip"}'}
+    mock_response = {"choices": [{"message": {"content": '{"action": "skip"}'}}]}
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = MagicMock(
@@ -374,7 +374,7 @@ async def test_summarize_group_multiple_messages():
     ]
     
     mock_response = {
-        "response": '{"action": "create_task", "title": "Обработка нескольких сообщений", "tags": ["test"], "content": "Контент", "reason": "Тест"}'
+        "choices": [{"message": {"content": '{"action": "create_task", "title": "Обработка нескольких сообщений", "tags": ["test"], "content": "Контент", "reason": "Тест"}'}}]
     }
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
