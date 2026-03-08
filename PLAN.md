@@ -259,6 +259,8 @@ httpx>=0.25.0
 | 10 | TICKET-010.md | ✅ | Документация архитектуры |
 | 11 | TICKET-011.md | ✅ | Деплой через Docker Compose |
 | 12 | TICKET-012.md | ✅ | Стабилизация Docker Compose запуска |
+| 13 | TICKET-013.md | ✅ | Исправление обработки пересылок |
+| 14 | TICKET-014.md | ✅ | Интеграционный тест саммаризации |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 
@@ -278,6 +280,8 @@ httpx>=0.25.0
 | 10 | Документация архитектуры | documentation/ARCHITECTURE.md | 🟡 |
 | 11 | Деплой через Docker Compose | Dockerfile, docker-compose.yml, DEPLOYMENT.md | 🟡 |
 | 12 | Стабилизация Docker Compose | bot/main.py, handlers/summarizer.py | ✅ |
+| 13 | Исправление обработки пересылок | handlers/messages.py, extract_forward_info | ✅ |
+| 14 | Интеграционный тест саммаризации | tests/integration/test_summarizer.py | ✅ |
 
 ---
 

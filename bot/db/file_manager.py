@@ -138,9 +138,18 @@ class FileManager:
         return messages
 
     def clear_messages(self, user_id: int) -> None:
-        file_path = self._get_user_dir(user_id) / "inbox.md"
-        if file_path.exists():
-            file_path.unlink()
+        inbox_path = self._get_user_dir(user_id) / "inbox.md"
+        if inbox_path.exists():
+            inbox_path.unlink()
+    
+    def save_backup(self, user_id: int) -> str:
+        inbox_path = self._get_user_dir(user_id) / "inbox.md"
+        if not inbox_path.exists():
+            return ""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = self._get_user_dir(user_id) / f"inbox_backup_{timestamp}.md"
+        backup_path.write_text(inbox_path.read_text(encoding="utf-8"), encoding="utf-8")
+        return str(backup_path)
 
     def append_task(self, user_id: int, task: Task) -> None:
         items = self._load_all_items(user_id, "tasks")

@@ -1,30 +1,39 @@
 from typing import List, Set
 import re
+import logging
 
 from bot.db.models import InboxMessage
+
+logger = logging.getLogger(__name__)
 
 
 class ContextAnalyzer:
     @staticmethod
     def group_messages(messages: List[InboxMessage]) -> List[List[InboxMessage]]:
         """Главная функция группировки сообщений"""
+        logger.debug(f"🔍 Группировка {len(messages)} сообщений")
         if not messages:
+            logger.debug("   ⚠️ Нет сообщений")
             return []
         
         # Сортировка по времени
         sorted_messages = sorted(messages, key=lambda m: m.timestamp)
+        logger.debug(f"   ✓ Отсортировано по времени")
         
         # Группировка по времени
         groups = ContextAnalyzer._group_by_time_window(sorted_messages, window_minutes=30)
+        logger.debug(f"   ✓ Временная группировка: {len(groups)} групп")
         
         # Объединение групп по семантике
         groups = ContextAnalyzer._group_by_similarity(groups)
+        logger.debug(f"   ✓ Семантическая группировка: {len(groups)} групп")
         
         return groups
     
     @staticmethod
     def _group_by_time_window(messages: List[InboxMessage], window_minutes: int = 30) -> List[List[InboxMessage]]:
         """Группировка по временному окну"""
+        logger.debug(f"   ⏰ Временная группировка (окно {window_minutes} мин)")
         if not messages:
             return []
         
@@ -37,16 +46,20 @@ class ContextAnalyzer:
             if time_diff <= window_minutes:
                 current_group.append(messages[i])
             else:
+                logger.debug(f"      Разделение групп: {len(current_group)} сообщений")
                 groups.append(current_group)
                 current_group = [messages[i]]
         
         groups.append(current_group)
+        logger.debug(f"      Итого групп: {len(groups)}")
         return groups
     
     @staticmethod
     def _group_by_similarity(groups: List[List[InboxMessage]]) -> List[List[InboxMessage]]:
         """Объединение групп по семантической близости"""
+        logger.debug(f"   🔀 Семантическая группировка: {len(groups)} групп")
         if len(groups) <= 1:
+            logger.debug(f"      Нет групп для объединения")
             return groups
         
         # Извлечение ключевых слов из сообщений
@@ -92,11 +105,16 @@ class ContextAnalyzer:
             common = prev_keywords & curr_keywords
             has_continuation = is_continuation(curr_group[0], prev_group[-1])
             
+            logger.debug(f"      Группа {i}: {len(common)} общих слов, continuation={has_continuation}")
+            
             if len(common) >= 3 or has_continuation:
                 merged[-1] = prev_group + curr_group
+                logger.debug(f"         ✓ Объединено")
             else:
                 merged.append(curr_group)
+                logger.debug(f"         ✗ Оставлено отдельно")
         
+        logger.debug(f"      Итого после объединения: {len(merged)} групп")
         return merged
     
     @staticmethod

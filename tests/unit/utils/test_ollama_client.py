@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
 from bot.db.models import InboxMessage
-from utils.ollama_client import OllamaConfig, OllamaClient
+from utils.ollama_client import OpenAIConfig, OpenAIClient
 from typing import Optional
 
 
@@ -24,21 +24,21 @@ def create_message(id: str, offset_minutes: int, content: str, sender_name: str 
     )
 
 
-def test_ollama_config_default_base_url():
+def test_openai_config_default_base_url():
     """Тест: значение по умолчанию base_url"""
-    config = OllamaConfig()
+    config = OpenAIConfig()
     assert config.base_url == "http://localhost:11434"
 
 
-def test_ollama_config_default_model():
+def test_openai_config_default_model():
     """Тест: значение по умолчанию model"""
-    config = OllamaConfig()
+    config = OpenAIConfig()
     assert config.model == "llama3"
 
 
-def test_ollama_config_custom():
+def test_openai_config_custom():
     """Тест: кастомная конфигурация"""
-    config = OllamaConfig(base_url="http://custom:11434", model="mistral")
+    config = OpenAIConfig(base_url="http://custom:11434", model="mistral")
     assert config.base_url == "http://custom:11434"
     assert config.model == "mistral"
 
@@ -48,7 +48,7 @@ def test_format_messages_basic():
     messages = [
         create_message("msg_1", 0, "Тестовое сообщение"),
     ]
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._format_messages(messages)
     
     assert "Тестовое сообщение" in result
@@ -60,7 +60,7 @@ def test_format_messages_with_sender_name():
     messages = [
         create_message("msg_1", 0, "Привет", sender_name="Иван"),
     ]
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._format_messages(messages)
     
     assert "Иван" in result
@@ -71,7 +71,7 @@ def test_format_messages_no_sender_name():
     messages = [
         create_message("msg_2", 10, "Без имени", sender_name=""),
     ]
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._format_messages(messages)
     
     assert "User 123456789" in result
@@ -84,7 +84,7 @@ def test_format_messages_multiple():
         create_message("msg_2", 10, "Второе"),
         create_message("msg_3", 20, "Третье"),
     ]
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._format_messages(messages)
     
     assert result.count("Первое") == 1
@@ -94,7 +94,7 @@ def test_format_messages_multiple():
 
 def test_format_messages_empty():
     """Тест: пустой список сообщений"""
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._format_messages([])
     assert result == ""
 
@@ -102,7 +102,7 @@ def test_format_messages_empty():
 def test_build_prompt_contains_messages():
     """Тест: промпт содержит текст сообщений"""
     messages_text = "[timestamp] User:\nТестовое сообщение"
-    client = OllamaClient()
+    client = OpenAIClient()
     result = asyncio.run(client._build_prompt(messages_text))
     
     assert "Тестовое сообщение" in result
@@ -111,7 +111,7 @@ def test_build_prompt_contains_messages():
 def test_build_prompt_json_structure():
     """Тест: структура JSON в промпте"""
     messages_text = "Тест"
-    client = OllamaClient()
+    client = OpenAIClient()
     result = asyncio.run(client._build_prompt(messages_text))
     
     assert '"action": "create_task"' in result
@@ -124,7 +124,7 @@ def test_build_prompt_json_structure():
 def test_build_prompt_skip_option():
     """Тест: опция skip в промпте"""
     messages_text = "Тест"
-    client = OllamaClient()
+    client = OpenAIClient()
     result = asyncio.run(client._build_prompt(messages_text))
     
     assert '"action": "skip"' in result
@@ -132,7 +132,7 @@ def test_build_prompt_skip_option():
 
 def test_parse_valid_json():
     """Тест: парсинг валидного JSON"""
-    client = OllamaClient()
+    client = OpenAIClient()
     json_str = '{"action": "create_task", "title": "Тест", "tags": ["tag1"], "content": "Контент", "reason": "Потому что"}'
     result = client._parse_response(json_str)
     
@@ -145,7 +145,7 @@ def test_parse_valid_json():
 
 def test_parse_json_with_prefix():
     """Тест: извлечение JSON из ответа с префиксом"""
-    client = OllamaClient()
+    client = OpenAIClient()
     response = 'Ответ: {"action": "create_task", "title": "Задача"}'
     result = client._parse_response(response)
     
@@ -154,7 +154,7 @@ def test_parse_json_with_prefix():
 
 def test_parse_json_with_suffix():
     """Тест: извлечение JSON из ответа с суффиксом"""
-    client = OllamaClient()
+    client = OpenAIClient()
     response = 'Вот JSON: {"action": "create_note", "title": "Заметка"}'
     result = client._parse_response(response)
     
@@ -163,7 +163,7 @@ def test_parse_json_with_suffix():
 
 def test_parse_invalid_json():
     """Тест: обработка некорректного формата"""
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._parse_response("Это не JSON")
     
     assert result == {"action": "skip"}
@@ -171,7 +171,7 @@ def test_parse_invalid_json():
 
 def test_parse_empty_response():
     """Тест: пустой ответ"""
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._parse_response("")
     
     assert result == {"action": "skip"}
@@ -179,7 +179,7 @@ def test_parse_empty_response():
 
 def test_parse_partial_json():
     """Тест: частичный JSON"""
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._parse_response("{")
     
     assert result == {"action": "skip"}
@@ -187,7 +187,7 @@ def test_parse_partial_json():
 
 def test_parse_skip_action():
     """Тест: действие skip"""
-    client = OllamaClient()
+    client = OpenAIClient()
     result = client._parse_response('{"action": "skip"}')
     
     assert result["action"] == "skip"
@@ -209,7 +209,7 @@ async def test_summarize_group_successful_task():
             raise_for_status=MagicMock()
         )
         
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group(messages)
         
         assert result["action"] == "create_task"
@@ -233,7 +233,7 @@ async def test_summarize_group_create_note():
             raise_for_status=MagicMock()
         )
         
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group(messages)
         
         assert result["action"] == "create_note"
@@ -254,7 +254,7 @@ async def test_summarize_group_skip():
             raise_for_status=MagicMock()
         )
         
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group(messages)
         
         assert result["action"] == "skip"
@@ -270,7 +270,7 @@ async def test_summarize_group_connect_error():
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.side_effect = httpx.ConnectError("Connection refused")
         
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group(messages)
         
         assert result["action"] == "skip"
@@ -286,7 +286,7 @@ async def test_summarize_group_timeout():
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.side_effect = httpx.TimeoutException("Timeout")
         
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group(messages)
         
         assert result["action"] == "skip"
@@ -305,7 +305,7 @@ async def test_summarize_group_http_error():
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
         
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group(messages)
         
         assert result["action"] == "skip"
@@ -315,7 +315,7 @@ async def test_summarize_group_http_error():
 
 async def test_summarize_group_empty_messages():
     """Тест: пустая группа сообщений"""
-    client = OllamaClient()
+    client = OpenAIClient()
     result = await client.summarize_group([])
     
     assert result["action"] == "skip"
@@ -337,7 +337,7 @@ async def test_summarize_group_custom_config():
         )
         
         config = OllamaConfig(base_url="http://custom:11434", model="test-model")
-        client = OllamaClient(config=config)
+        client = OpenAIClient(config=config)
         await client.summarize_group(messages)
         
         call_args = mock_post.call_args
@@ -359,7 +359,7 @@ async def test_summarize_group_long_messages():
             raise_for_status=MagicMock()
         )
         
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group(messages)
         
         assert result["action"] == "skip"
@@ -383,7 +383,7 @@ async def test_summarize_group_multiple_messages():
             raise_for_status=MagicMock()
         )
         
-        client = OllamaClient()
+        client = OpenAIClient()
         result = await client.summarize_group(messages)
         
         assert result["action"] == "create_task"

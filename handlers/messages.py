@@ -31,7 +31,7 @@ def extract_forward_info(message: Message) -> Optional[Tuple[int, Optional[str]]
         sender_name = f"{sender_user.first_name} {sender_user.last_name}" if sender_user.last_name else sender_user.first_name
         return (sender_user.id, sender_name)
     elif isinstance(forward_origin, MessageOriginHiddenUser):
-        return (message.from_user.id, forward_origin.sender_user_name)
+        return (0, forward_origin.sender_user_name)
     elif isinstance(forward_origin, MessageOriginChat):
         sender_chat = forward_origin.sender_chat
         return (sender_chat.id, sender_chat.title)
