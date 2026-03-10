@@ -261,7 +261,7 @@ httpx>=0.25.0
 | 12 | TICKET-012.md | ✅ | Стабилизация Docker Compose запуска |
 | 13 | TICKET-013.md | ✅ | Исправление обработки пересылок |
 | 14 | TICKET-014.md | ✅ | Интеграционный тест саммаризации |
-| 15 | TICKET-015.md | ✅ | Inline-кнопки для задач |
+| 15 | TICKET-015.md | ✅ | Управление задачами (выполнение и удаление) |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 
@@ -283,7 +283,12 @@ httpx>=0.25.0
 | 12 | Стабилизация Docker Compose | bot/main.py, handlers/summarizer.py | ✅ |
 | 13 | Исправление обработки пересылок | handlers/messages.py, extract_forward_info | ✅ |
 | 14 | Интеграционный тест саммаризации | tests/integration/test_summarizer.py | ✅ |
+| 15 | Управление задачами (выполнение и удаление) | file_manager.delete_task, commands done/del handlers | ✅ |
+<<<<<<< HEAD
 | 15 | Inline-кнопки для задач | handlers/commands.py, bot/db/file_manager.py | ⏳ |
+=======
+| 15 | Управление задачами | FileManager.delete_task(), handlers/commands.py (/done_, /del_) | ✅ |
+>>>>>>> 91bee8e (feat: add TICKET-015 - Task management (complete/delete))
 
 ---
 
