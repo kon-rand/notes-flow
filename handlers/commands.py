@@ -1,12 +1,13 @@
 import asyncio
-from aiogram import Router
-from aiogram.types import Message
+from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 import os
 
 from bot.timers.manager import SummarizeTimer, summarizer_timer
 from bot.db.file_manager import FileManager
 from bot.config import settings
+from bot.db.models import Task
 
 
 router = Router()
@@ -140,14 +141,10 @@ async def inbox_handler(message: Message):
 
 @router.message(Command("tasks"))
 async def tasks_handler(message: Message):
-    """Список задач"""
+    """Список задач с inline-кнопками"""
     if message.from_user is None:
         return
     user_id = message.from_user.id
-    
-    if not os.path.exists(f"data/{user_id}/tasks.md"):
-        await message.answer("У вас пока нет задач")
-        return
     
     file_manager = FileManager()
     tasks = file_manager.read_tasks(user_id)
@@ -156,14 +153,36 @@ async def tasks_handler(message: Message):
         await message.answer("У вас пока нет задач")
         return
     
+    # Собираем все задачи в одно сообщение
     response = "✅ Ваши задачи:\n\n"
-    for task in tasks:
+    for i, task in enumerate(tasks):
         status = "✅" if task.status == "completed" else "⏳"
         tags = ", ".join(task.tags) if task.tags else ""
         response += f"{status} {task.title} [{tags}]\n"
         response += f"   {task.content}\n\n"
     
-    await message.answer(response)
+    # Создаем клавиатуру для первой задачи
+    first_task = tasks[0]
+    status = "✅" if first_task.status == "completed" else "⏳"
+    tags = ", ".join(first_task.tags) if first_task.tags else ""
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="✅ Выполнено" if first_task.status == "pending" else "🔄 Отменить",
+                callback_data=f"task_done:{first_task.id}"
+            ),
+            InlineKeyboardButton(
+                text="🗑 Удалить",
+                callback_data=f"task_delete:{first_task.id}"
+            ),
+        ]
+    ])
+    
+    await message.answer(
+        response.rstrip(),
+        reply_markup=keyboard
+    )
 
 
 @router.message(Command("notes"))
@@ -214,3 +233,120 @@ async def clear_handler(message: Message):
     file_manager.clear_messages(user_id)
     
     await message.answer("Инбокс очищен")
+
+
+@router.callback_query(F.data.startswith("task_done:"))
+async def task_done_handler(callback: CallbackQuery):
+    """
+    Обработка нажатия кнопки выполнения задачи.
+    
+    Callback data: task_done:{task_id}
+    Переключает статус задачи между pending и completed.
+    Обновляет сообщение с задачей.
+    """
+    task_id = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+    
+    file_manager = FileManager()
+    tasks = file_manager.read_tasks(user_id)
+    
+    task = next((t for t in tasks if t.id == task_id), None)
+    if not task:
+        await callback.answer("❌ Задача не найдена", show_alert=True)
+        return
+    
+    new_status = "completed" if task.status == "pending" else "pending"
+    success = file_manager.update_task_status(user_id, task_id, new_status)
+    
+    if success:
+        status_icon = "✅" if new_status == "completed" else "⏳"
+        action = "выполнена" if new_status == "completed" else "возвращена в список"
+        await callback.answer(f"✅ Задача {action}!")
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔄 Отменить" if new_status == "completed" else "✅ Выполнено",
+                    callback_data=f"task_done:{task_id}"
+                ),
+                InlineKeyboardButton(
+                    text="🗑 Удалить",
+                    callback_data=f"task_delete:{task_id}"
+                ),
+            ]
+        ])
+        
+        tags = ", ".join(task.tags) if task.tags else ""
+        await callback.message.edit_text(
+            f"{status_icon} {task.title} [{tags}]\n"
+            f"   {task.content}",
+            reply_markup=keyboard
+        )
+    else:
+        await callback.answer("❌ Ошибка при обновлении задачи", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("task_delete:"))
+async def task_delete_handler(callback: CallbackQuery):
+    """
+    Обработка нажатия кнопки удаления задачи.
+    
+    Callback data: task_delete:{task_id}
+    Запрашивает подтверждение удаления.
+    """
+    task_id = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+    
+    file_manager = FileManager()
+    tasks = file_manager.read_tasks(user_id)
+    
+    task = next((t for t in tasks if t.id == task_id), None)
+    if not task:
+        await callback.answer("❌ Задача не найдена", show_alert=True)
+        return
+    
+    confirm_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton("✅ Да, удалить", callback_data=f"task_delete_confirm:{task_id}"),
+            InlineKeyboardButton("❌ Отмена", callback_data="task_delete_cancel"),
+        ]
+    ])
+    
+    await callback.answer(f"Удалить задачу \"{task.title}\"?", show_alert=True)
+    await callback.message.edit_text(
+        f"Удалить задачу:\n\n«{task.title}»\n{task.content}",
+        reply_markup=confirm_keyboard
+    )
+
+
+@router.callback_query(F.data.startswith("task_delete_confirm:"))
+async def task_delete_confirm_handler(callback: CallbackQuery):
+    """
+    Подтверждение удаления задачи.
+    
+    Callback data: task_delete_confirm:{task_id}
+    Удаляет задачу и обновляет список.
+    """
+    task_id = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+    
+    file_manager = FileManager()
+    success = file_manager.delete_task(user_id, task_id)
+    
+    if success:
+        await callback.answer("✅ Задача удалена!")
+        await callback.message.delete()
+    else:
+        await callback.answer("❌ Ошибка при удалении задачи", show_alert=True)
+
+
+@router.callback_query(F.data == "task_delete_cancel")
+async def task_delete_cancel_handler(callback: CallbackQuery):
+    """
+    Отмена удаления задачи.
+    
+    Callback data: task_delete_cancel
+    Возвращает к списку задач.
+    """
+    await callback.answer("❌ Удаление отменено")
+    await callback.message.delete()

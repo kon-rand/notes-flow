@@ -196,6 +196,22 @@ class FileManager:
                 return True
         return False
 
+    def delete_task(self, user_id: int, task_id: str) -> bool:
+        """Удалить задачу по ID"""
+        items = self._load_all_items(user_id, "tasks")
+        
+        items = [(id, data) for id, data in items if id != task_id]
+        
+        if len(items) == 0:
+            task_path = self._get_user_dir(user_id) / "tasks.md"
+            if task_path.exists():
+                task_path.unlink()
+        else:
+            file_path = self._get_user_dir(user_id) / "tasks.md"
+            self._write_file(file_path, "task", items)
+        
+        return True
+
     def append_note(self, user_id: int, note: Note) -> None:
         items = self._load_all_items(user_id, "notes")
         existing_ids = [item[0] for item in items]
