@@ -1,6 +1,10 @@
 import asyncio
 from aiogram import Router, F
+<<<<<<< HEAD
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+=======
+from aiogram.types import Message
+>>>>>>> a154931 (feat: fix failing tests and complete TICKET-015)
 from aiogram.filters import Command
 import os
 
@@ -64,6 +68,11 @@ async def help_handler(message: Message):
 /summarize - ручная саммаризация инбокса
 /settings delay <минуты> - настройка задержки саммаризации
 /clear inbox - ручная очистка инбокса
+
+💡 Управление задачами:
+/done_XXX - отметить задачу как выполненную (XXX - номер задачи)
+/del_XXX - удалить задачу (XXX - номер задачи)
+Команды показываются в выводе /tasks под каждой задачей
 
 💡 Подсказки:
 - Сообщения в инбоксе группируются автоматически
@@ -155,11 +164,23 @@ async def tasks_handler(message: Message):
     
     # Собираем все задачи в одно сообщение
     response = "✅ Ваши задачи:\n\n"
+<<<<<<< HEAD
     for i, task in enumerate(tasks):
+=======
+    for task in tasks:
+        task_number = task.id.split("_")[1] if "_" in task.id else task.id
+        
+>>>>>>> a154931 (feat: fix failing tests and complete TICKET-015)
         status = "✅" if task.status == "completed" else "⏳"
         tags = ", ".join(task.tags) if task.tags else ""
         response += f"{status} {task.title} [{tags}]\n"
-        response += f"   {task.content}\n\n"
+        response += f"   {task.content}\n"
+        
+        if task.status == "pending":
+            response += f"   /done_{task_number}   /del_{task_number}\n"
+        else:
+            response += f"   /del_{task_number}\n"
+        response += "\n"
     
     # Создаем клавиатуру для первой задачи
     first_task = tasks[0]
@@ -235,6 +256,7 @@ async def clear_handler(message: Message):
     await message.answer("Инбокс очищен")
 
 
+<<<<<<< HEAD
 @router.callback_query(F.data.startswith("task_done:"))
 async def task_done_handler(callback: CallbackQuery):
     """
@@ -329,11 +351,50 @@ async def task_delete_confirm_handler(callback: CallbackQuery):
     """
     task_id = callback.data.split(":")[1]
     user_id = callback.from_user.id
+=======
+@router.message(F.text.startswith("/done_"))
+async def done_task_handler(message: Message):
+    """Отметить задачу как выполненную"""
+    if message.from_user is None:
+        return
+    
+    task_number = message.text[6:]
+    if not task_number.isdigit():
+        await message.answer("❌ Неверный формат команды. Используйте: /done_123")
+        return
+    
+    task_id = f"task_{task_number.zfill(3)}"
+    user_id = message.from_user.id
+    
+    file_manager = FileManager()
+    success = file_manager.update_task_status(user_id, task_id, "completed")
+    
+    if success:
+        await message.answer(f"✅ Задача {task_number} отмечена как выполненная")
+    else:
+        await message.answer(f"❌ Задача {task_number} не найдена")
+
+
+@router.message(F.text.startswith("/del_"))
+async def delete_task_handler(message: Message):
+    """Удалить задачу"""
+    if message.from_user is None:
+        return
+    
+    task_number = message.text[5:]
+    if not task_number.isdigit():
+        await message.answer("❌ Неверный формат команды. Используйте: /del_123")
+        return
+    
+    task_id = f"task_{task_number.zfill(3)}"
+    user_id = message.from_user.id
+>>>>>>> a154931 (feat: fix failing tests and complete TICKET-015)
     
     file_manager = FileManager()
     success = file_manager.delete_task(user_id, task_id)
     
     if success:
+<<<<<<< HEAD
         await callback.answer("✅ Задача удалена!")
         await callback.message.delete()
     else:
@@ -350,3 +411,8 @@ async def task_delete_cancel_handler(callback: CallbackQuery):
     """
     await callback.answer("❌ Удаление отменено")
     await callback.message.delete()
+=======
+        await message.answer(f"✅ Задача {task_number} удалена")
+    else:
+        await message.answer(f"❌ Задача {task_number} не найдена")
+>>>>>>> a154931 (feat: fix failing tests and complete TICKET-015)
