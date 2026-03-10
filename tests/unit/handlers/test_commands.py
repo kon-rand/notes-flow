@@ -6,13 +6,15 @@ from bot.db.models import InboxMessage, Task, Note
 from handlers.commands import (
     start_handler,
     help_handler,
-    summarize_handler,
     inbox_handler,
     tasks_handler,
     notes_handler,
     clear_handler,
-    settings_handler
+    settings_handler,
+    done_task_handler,
+    delete_task_handler
 )
+from handlers.summarizer import summarize_command
 
 
 @pytest.fixture
@@ -158,10 +160,14 @@ async def test_help_handler(mock_message):
 @pytest.mark.asyncio
 async def test_summarize_handler(mock_message):
     """Тест: /summarize запускает саммаризацию"""
-    with patch('handlers.summarizer.auto_summarize', new_callable=AsyncMock) as mock_summarize:
-        await summarize_handler(mock_message)
+    with patch('handlers.summarizer.summarize_command', new_callable=AsyncMock) as mock_summarize, \
+         patch('handlers.commands.Bot') as MockBot:
+        mock_bot = MagicMock()
+        MockBot.return_value = mock_bot
         
-        mock_summarize.assert_called_once_with(123456789)
+        await summarize_command(mock_message, mock_bot)
+        
+        mock_summarize.assert_called_once()
         mock_message.answer.assert_called()
 
 
@@ -365,24 +371,6 @@ async def test_settings_handler_negative_delay(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_settings_handler_negative_delay(mock_message):
-    """Тест: /settings delay с отрицательным значением"""
-    with patch('bot.config.settings') as mock_settings, \
-         patch('handlers.commands.summarizer_timer') as mock_timer_instance:
-        
-        mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
-        mock_timer_instance.reset = AsyncMock()
-        mock_timer_instance.schedule_summarization = AsyncMock()
-        
-        mock_message.text = "/settings delay -5"
-        
-        await settings_handler(mock_message)
-        
-        mock_message.answer.assert_called_once()
-        assert "должна быть не менее 1 минуты" in mock_message.answer.call_args[0][0]
-
-
-@pytest.mark.asyncio
 async def test_tasks_handler_multiple_tasks(mock_message, sample_task):
     """Тест: /tasks с несколькими задачами"""
     sample_task_2 = Task(
@@ -437,3 +425,107 @@ async def test_notes_handler_multiple_notes(mock_message, sample_note):
         assert "Ваши заметки" in response
         assert "Идеи для проекта" in response
         assert "Встреча с командой" in response
+
+
+@pytest.mark.asyncio
+async def test_done_task_success(mock_message):
+    """Тест команды /done_XXX"""
+    mock_message.text = "/done_001"
+    mock_message.from_user.id = 123
+    
+    with patch('handlers.commands.FileManager') as MockFM:
+        fm_instance = MagicMock()
+        fm_instance.update_task_status.return_value = True
+        MockFM.return_value = fm_instance
+        
+        await done_task_handler(mock_message)
+        
+        fm_instance.update_task_status.assert_called_once_with(123, "task_001", "completed")
+        mock_message.answer.assert_called_once()
+        assert "отмечена как выполненная" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_done_task_invalid_format(mock_message):
+    """Тест команды с неверным форматом"""
+    mock_message.text = "/done_abc"
+    mock_message.from_user.id = 123
+    
+    with patch('handlers.commands.FileManager') as MockFM:
+        MockFM.return_value = MagicMock()
+        
+        await done_task_handler(mock_message)
+        
+        MockFM.return_value.update_task_status.assert_not_called()
+        mock_message.answer.assert_called_once()
+        assert "Неверный формат" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_done_task_not_found(mock_message):
+    """Тест команды с несуществующей задачей"""
+    mock_message.text = "/done_999"
+    mock_message.from_user.id = 123
+    
+    with patch('handlers.commands.FileManager') as MockFM:
+        fm_instance = MagicMock()
+        fm_instance.update_task_status.return_value = False
+        MockFM.return_value = fm_instance
+        
+        await done_task_handler(mock_message)
+        
+        fm_instance.update_task_status.assert_called_once_with(123, "task_999", "completed")
+        mock_message.answer.assert_called_once()
+        assert "не найдена" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_delete_task_success(mock_message):
+    """Тест команды /del_XXX"""
+    mock_message.text = "/del_001"
+    mock_message.from_user.id = 123
+    
+    with patch('handlers.commands.FileManager') as MockFM:
+        fm_instance = MagicMock()
+        fm_instance.delete_task.return_value = True
+        MockFM.return_value = fm_instance
+        
+        await delete_task_handler(mock_message)
+        
+        fm_instance.delete_task.assert_called_once_with(123, "task_001")
+        mock_message.answer.assert_called_once()
+        assert "удалена" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_delete_task_invalid_format(mock_message):
+    """Тест команды с неверным форматом"""
+    mock_message.text = "/del_abc"
+    mock_message.from_user.id = 123
+    
+    with patch('handlers.commands.FileManager') as MockFM:
+        MockFM.return_value = MagicMock()
+        
+        await delete_task_handler(mock_message)
+        
+        MockFM.return_value.delete_task.assert_not_called()
+        mock_message.answer.assert_called_once()
+        assert "Неверный формат" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_delete_task_not_found(mock_message):
+    """Тест команды с несуществующей задачей"""
+    mock_message.text = "/del_999"
+    mock_message.from_user.id = 123
+    
+    with patch('handlers.commands.FileManager') as MockFM:
+        fm_instance = MagicMock()
+        fm_instance.delete_task.return_value = False
+        MockFM.return_value = fm_instance
+        
+        await delete_task_handler(mock_message)
+        
+        fm_instance.delete_task.assert_called_once_with(123, "task_999")
+        mock_message.answer.assert_called_once()
+        assert "не найдена" in mock_message.answer.call_args[0][0]

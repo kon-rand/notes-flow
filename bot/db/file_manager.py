@@ -196,6 +196,25 @@ class FileManager:
                 return True
         return False
 
+    def delete_task(self, user_id: int, task_id: str) -> bool:
+        items = self._load_all_items(user_id, "tasks")
+        existing_ids = [id for id, _ in items]
+        
+        if task_id not in existing_ids:
+            return False
+        
+        items = [(id, data) for id, data in items if id != task_id]
+        
+        if len(items) == 0:
+            tasks_path = self._get_user_dir(user_id) / "tasks.md"
+            if tasks_path.exists():
+                tasks_path.unlink()
+            return True
+        
+        file_path = self._get_user_dir(user_id) / "tasks.md"
+        self._write_file(file_path, "task", items)
+        return True
+
     def append_note(self, user_id: int, note: Note) -> None:
         items = self._load_all_items(user_id, "notes")
         existing_ids = [item[0] for item in items]
