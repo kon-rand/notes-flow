@@ -262,6 +262,7 @@ httpx>=0.25.0
 | 13 | TICKET-013.md | ✅ | Исправление обработки пересылок |
 | 14 | TICKET-014.md | ✅ | Интеграционный тест саммаризации |
 | 15 | TICKET-015.md | ✅ | Управление задачами (выполнение и удаление) |
+| 16 | TICKET-016.md | ✅ | Архивация выполненных задач |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 
@@ -284,6 +285,7 @@ httpx>=0.25.0
 | 13 | Исправление обработки пересылок | handlers/messages.py, extract_forward_info | ✅ |
 | 14 | Интеграционный тест саммаризации | tests/integration/test_summarizer.py | ✅ |
 | 15 | Управление задачами | FileManager.delete_task(), handlers/commands.py (/done_, /del_) | ✅ |
+| 16 | Архивация задач | FileManager.archive_completed_tasks(), /complete, /complete_YYYY_MM_DD, /archive | 🟡 |
 
 ---
 
