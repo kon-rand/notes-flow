@@ -325,6 +325,7 @@ async def completed_handler(message: Message):
             response += f"📌 {task.title} [{tags}]\n"
             response += f"   {task.content}\n\n"
         
+        response += "\nℹ️ Используйте /completed YYYY_MM_DD для просмотра задач за другую дату"
         await message.answer(response)
 
 

@@ -259,3 +259,43 @@ async def test_completed_handler_multiple_archive_dates(mock_message):
         assert "2026-03-10" in response
         assert "(1 задач)" in response
         assert "(0 задач)" in response
+
+
+@pytest.mark.asyncio
+async def test_completed_handler_with_date_navigation_hint(mock_message, sample_tasks):
+    """Тест: /completed с датой показывает подсказку навигации"""
+    mock_message.text = "/completed 2026_03_10"
+    
+    with patch('handlers.commands.FileManager') as MockFM:
+        fm_instance = MagicMock()
+        fm_instance.get_tasks_by_archive_date.return_value = sample_tasks
+        MockFM.return_value = fm_instance
+        
+        await completed_handler(mock_message)
+        
+        mock_message.answer.assert_called_once()
+        response = mock_message.answer.call_args[0][0]
+        
+        assert "✅ Задачи за 2026-03-10" in response
+        assert "Используйте /completed YYYY_MM_DD" in response
+
+
+@pytest.mark.asyncio
+async def test_completed_handler_with_date_separate_format(mock_message, sample_tasks):
+    """Тест: /completed в отдельном сообщении с датой"""
+    mock_message.text = "/completed 2026_03_10"
+    
+    with patch('handlers.commands.FileManager') as MockFM:
+        fm_instance = MagicMock()
+        fm_instance.get_tasks_by_archive_date.return_value = sample_tasks
+        MockFM.return_value = fm_instance
+        
+        await completed_handler(mock_message)
+        
+        mock_message.answer.assert_called_once()
+        response = mock_message.answer.call_args[0][0]
+        
+        assert "Задачи за 2026-03-10" in response
+        assert "Купить продукты" in response
+        assert "[покупки]" in response
+        assert "Используйте /completed YYYY_MM_DD" in response
