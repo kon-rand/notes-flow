@@ -28,6 +28,8 @@ async def main():
         BotCommand(command="tasks", description="список задач"),
         BotCommand(command="notes", description="список заметок"),
         BotCommand(command="clear", description="очистка инбокса"),
+        BotCommand(command="complete", description="просмотр архивов"),
+        BotCommand(command="archive", description="архивация задач"),
     ]
     await bot.set_my_commands(commands)
 

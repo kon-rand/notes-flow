@@ -3,6 +3,7 @@ from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
 import os
+from datetime import datetime
 
 from bot.timers.manager import SummarizeTimer, summarizer_timer
 from bot.db.file_manager import FileManager
@@ -42,6 +43,8 @@ async def start_handler(message: Message):
 /summarize - ручная саммаризация
 /settings delay <мин> - настройка задержки
 /clear inbox - очистить инбокс
+/complete - просмотр архивов
+/archive - архивация задач
 /help - показать эту справку"""
         
         await message.answer(stats)
@@ -67,7 +70,8 @@ async def help_handler(message: Message):
 💡 Управление задачами:
 /done_XXX - отметить задачу как выполненную (XXX - номер задачи)
 /del_XXX - удалить задачу (XXX - номер задачи)
-Команды показываются в выводе /tasks под каждой задачей
+/complete - просмотр архивов задач
+/archive - архивация выполненных задач за сегодня
 
 💡 Подсказки:
 - Сообщения в инбоксе группируются автоматически
@@ -273,3 +277,66 @@ async def delete_task_handler(message: Message):
         await message.answer(f"✅ Задача {task_number} удалена")
     else:
         await message.answer(f"❌ Задача {task_number} не найдена")
+
+
+@router.message(Command("complete"))
+async def complete_handler(message: Message):
+    """Показать список дат с архивом или задачи за дату"""
+    if message.from_user is None:
+        return
+    user_id = message.from_user.id
+    
+    parts = message.text.split()
+    
+    if len(parts) == 1:
+        file_manager = FileManager()
+        archive_dates = file_manager.get_archive_dates(user_id)
+        
+        if not archive_dates:
+            await message.answer("У вас пока нет архивов")
+            return
+        
+        response = "📁 Архивы задач:\n\n"
+        for date in archive_dates:
+            tasks = file_manager.get_tasks_by_archive_date(user_id, date)
+            task_count = len(tasks)
+            response += f"📅 {date} ({task_count} задач)\n"
+        
+        await message.answer(response)
+    else:
+        date_input = parts[1]
+        
+        if not date_input.replace("_", "").isdigit():
+            await message.answer("❌ Неверный формат даты. Используйте: /complete YYYY_MM_DD")
+            return
+        
+        date_display = date_input.replace("_", "-")
+        
+        file_manager = FileManager()
+        tasks = file_manager.get_tasks_by_archive_date(user_id, date_input)
+        
+        if not tasks:
+            await message.answer(f"Задач за {date_display} не найдено")
+            return
+        
+        response = f"✅ Задачи за {date_display}:\n\n"
+        for task in tasks:
+            tags = ", ".join(task.tags) if task.tags else ""
+            response += f"📌 {task.title} [{tags}]\n"
+            response += f"   {task.content}\n\n"
+        
+        await message.answer(response)
+
+
+@router.message(Command("archive"))
+async def archive_handler(message: Message):
+    """Архивация выполненных задач за сегодня"""
+    if message.from_user is None:
+        return
+    user_id = message.from_user.id
+    
+    today = datetime.now()
+    file_manager = FileManager()
+    archived_tasks = file_manager.archive_completed_tasks(user_id, today)
+    
+    await message.answer(f"✅ Архивировано задач за {today.strftime('%Y-%m-%d')}: {len(archived_tasks)}")

@@ -19,6 +19,8 @@ class Task(BaseModel):
     tags: List[str]
     status: str = "pending"
     created_at: datetime
+    completed_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
     source_message_ids: List[str]
     content: str
 

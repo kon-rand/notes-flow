@@ -160,6 +160,8 @@ class FileManager:
             "tags": task.tags,
             "status": task.status,
             "created_at": task.created_at,
+            "completed_at": task.completed_at,
+            "archived_at": task.archived_at,
             "source_message_ids": task.source_message_ids,
             "content": task.content,
         }
@@ -178,6 +180,8 @@ class FileManager:
                     tags=item_data.get("tags", []),
                     status=item_data.get("status", "pending"),
                     created_at=item_data.get("created_at"),
+                    completed_at=item_data.get("completed_at"),
+                    archived_at=item_data.get("archived_at"),
                     source_message_ids=item_data.get("source_message_ids", []),
                     content=item_data.get("content", ""),
                 )
@@ -190,6 +194,8 @@ class FileManager:
         items = self._load_all_items(user_id, "tasks")
         for i, (id, item_data) in enumerate(items):
             if id == task_id:
+                if status == "completed" and not item_data.get("completed_at"):
+                    item_data["completed_at"] = datetime.now()
                 items[i] = (id, {**item_data, "status": status})
                 file_path = self._get_user_dir(user_id) / "tasks.md"
                 self._write_file(file_path, "task", items)
@@ -247,3 +253,121 @@ class FileManager:
             except Exception:
                 continue
         return notes
+
+    def _append_to_archive(self, archive_file: Path, tasks: List[Task]) -> None:
+        """Добавить задачи в файл архива"""
+        if archive_file.exists():
+            existing_data = self._read_file(archive_file)
+            if existing_data is None:
+                existing_data = {"metadata": {}, "items": []}
+            existing_items = existing_data.get("items", [])
+        else:
+            existing_items = []
+
+        for task in tasks:
+            item_data = {
+                "title": task.title,
+                "tags": task.tags,
+                "status": task.status,
+                "created_at": task.created_at,
+                "completed_at": task.completed_at,
+                "archived_at": task.archived_at,
+                "source_message_ids": task.source_message_ids,
+                "content": task.content,
+            }
+            existing_items.append((task.id, item_data))
+
+        metadata = {"type": "archived_tasks", "date": archive_file.stem}
+        self._write_file_with_metadata(archive_file, metadata, existing_items)
+
+    def _write_file_with_metadata(self, file_path: Path, metadata: dict, items: List[tuple]) -> None:
+        """Записать файл с метаданными"""
+        content_parts = ["---"]
+        for key, value in metadata.items():
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            content_parts.append(f"{key}: {value}")
+        content_parts.append("---")
+
+        for item_id, item_data in items:
+            content_parts.append(f"\n## {item_id}")
+            content_parts.append(self._serialize_item(item_data))
+
+        content = "\n".join(content_parts)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+    def _remove_tasks(self, user_id: int, task_ids: List[str]) -> None:
+        """Удалить задачи из tasks.md по списку ID"""
+        items = self._load_all_items(user_id, "tasks")
+        items = [(id, data) for id, data in items if id not in task_ids]
+
+        tasks_path = self._get_user_dir(user_id) / "tasks.md"
+        if len(items) == 0:
+            if tasks_path.exists():
+                tasks_path.unlink()
+        else:
+            self._write_file(tasks_path, "task", items)
+
+    def archive_completed_tasks(self, user_id: int, date: datetime) -> List[Task]:
+        """Перенести все выполненные задачи за сегодня и старше в архив"""
+        tasks = self.read_tasks(user_id)
+        completed = [
+            t for t in tasks
+            if t.status == "completed" and t.completed_at and t.completed_at.date() <= date.date()
+        ]
+
+        if not completed:
+            return []
+
+        archive_dir = self._get_user_dir(user_id) / "archive"
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        archive_file = archive_dir / f"{date.strftime('%Y-%m-%d')}.md"
+
+        for task in completed:
+            task.archived_at = date
+        self._append_to_archive(archive_file, completed)
+        self._remove_tasks(user_id, [t.id for t in completed])
+
+        return completed
+
+    def get_archive_dates(self, user_id: int) -> List[str]:
+        """Получить список дат, для которых есть файлы архива"""
+        archive_dir = self._get_user_dir(user_id) / "archive"
+        if not archive_dir.exists():
+            return []
+
+        dates = []
+        for file in archive_dir.glob("*.md"):
+            dates.append(file.stem)
+
+        return sorted(dates)
+
+    def get_tasks_by_archive_date(self, user_id: int, date: str) -> List[Task]:
+        """Получить все задачи из архива за указанную дату"""
+        archive_dir = self._get_user_dir(user_id) / "archive"
+        archive_file = archive_dir / f"{date}.md"
+
+        data = self._read_file(archive_file)
+        if data is None:
+            return []
+
+        tasks = []
+        for item_id, item_data in data.get("items", []):
+            try:
+                task = Task(
+                    id=item_id,
+                    title=item_data.get("title", ""),
+                    tags=item_data.get("tags", []),
+                    status=item_data.get("status", "pending"),
+                    created_at=item_data.get("created_at"),
+                    completed_at=item_data.get("completed_at"),
+                    archived_at=item_data.get("archived_at"),
+                    source_message_ids=item_data.get("source_message_ids", []),
+                    content=item_data.get("content", ""),
+                )
+                tasks.append(task)
+            except Exception:
+                continue
+
+        return tasks
