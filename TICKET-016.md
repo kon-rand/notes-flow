@@ -54,7 +54,7 @@ def get_tasks_by_archive_date(self, user_id: int, date: str) -> List[Task]:
 
 Добавить команды:
 
-**`/complete`** - показать список дат с архивом:
+**`/completed`** - показать список дат с архивом:
 ```python
 @dp.message(Command("complete"))
 async def cmd_complete(message: Message):
@@ -73,12 +73,12 @@ async def cmd_complete(message: Message):
     await message.answer(text)
 ```
 
-**`/complete_YYYY_MM_DD`** - показать задачи за конкретную дату:
+**`/completed_YYYY_MM_DD`** - показать задачи за конкретную дату:
 ```python
 @dp.message(Command("complete_"))
 async def cmd_complete_date(message: Message):
     """Показать все завершённые задачи за указанную дату (формат YYYY_MM_DD)"""
-    date_str = message.text.replace("/complete_", "")
+    date_str = message.text.replace("/completed_", "")
     
     try:
         # Проверить формат даты (YYYY_MM_DD)
@@ -238,15 +238,15 @@ def test_get_archive_dates():
 # tests/integration/test_commands_archive.py
 
 async def test_complete_command():
-    """Проверить команду /complete"""
+    """Проверить команду /completed"""
     # Создать тестового пользователя с архивом
-    # Отправить /complete
+    # Отправить /completed
     # Проверить ответ с перечнем дат
     
 async def test_complete_date_command():
-    """Проверить команду /complete_2026_03_10"""
+    """Проверить команду /completed_2026_03_10"""
     # Создать архив за 2026-03-10
-    # Отправить /complete_2026_03_10
+    # Отправить /completed_2026_03_10
     # Проверить вывод задач
 ```
 
@@ -264,7 +264,7 @@ async def test_complete_date_command():
 
 - Внутреннее хранение: `datetime` объекты
 - Файлы архива: `YYYY-MM-DD.md`
-- Команда `/complete_YYYY_MM_DD`: принимает `_` вместо `-`
+- Команда `/completed_YYYY_MM_DD`: принимает `_` вместо `-`
 - Вывод команд: `YYYY-MM-DD`
 
 ### Обработка ошибок
@@ -308,7 +308,7 @@ def archive_completed_tasks(self, user_id: int, date: datetime) -> List[Task]:
 
 - [x] Добавлено поле `completed_at` в модель Task
 - [x] Реализованы методы FileManager для архивации
-- [x] Реализованы команды `/complete`, `/complete_YYYY_MM_DD`, `/archive`
+- [x] Реализованы команды `/completed`, `/completed_YYYY_MM_DD`, `/archive`
 - [x] Файлы архива хранятся по дням (`YYYY-MM-DD.md`)
 - [x] Unit-тесты для методов FileManager
 - [x] Интеграционные тесты для команд

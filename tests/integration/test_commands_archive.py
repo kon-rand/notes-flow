@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from bot.db.models import Task
 from handlers.commands import (
-    complete_handler,
+    completed_handler,
     archive_handler
 )
 
@@ -16,7 +16,7 @@ def mock_message():
     msg.from_user = AsyncMock()
     msg.from_user.id = 123456789
     msg.answer = AsyncMock()
-    msg.text = "/complete"
+    msg.text = "/completed"
     return msg
 
 
@@ -51,14 +51,14 @@ def sample_tasks():
 
 
 @pytest.mark.asyncio
-async def test_complete_handler_no_archives(mock_message):
-    """Тест: /complete без архивов"""
+async def test_completed_handler_no_archives(mock_message):
+    """Тест: /completed без архивов"""
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.get_archive_dates.return_value = []
         MockFM.return_value = fm_instance
         
-        await complete_handler(mock_message)
+        await completed_handler(mock_message)
         
         mock_message.answer.assert_called_once()
         response = mock_message.answer.call_args[0][0]
@@ -67,15 +67,15 @@ async def test_complete_handler_no_archives(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_complete_handler_with_archives(mock_message, sample_tasks):
-    """Тест: /complete с архивами"""
+async def test_completed_handler_with_archives(mock_message, sample_tasks):
+    """Тест: /completed с архивами"""
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.get_archive_dates.return_value = ["2026-03-10"]
         fm_instance.get_tasks_by_archive_date.return_value = sample_tasks
         MockFM.return_value = fm_instance
         
-        await complete_handler(mock_message)
+        await completed_handler(mock_message)
         
         mock_message.answer.assert_called_once()
         response = mock_message.answer.call_args[0][0]
@@ -86,15 +86,15 @@ async def test_complete_handler_with_archives(mock_message, sample_tasks):
 
 
 @pytest.mark.asyncio
-async def test_complete_handler_with_date_invalid_format(mock_message):
-    """Тест: /complete с некорректным форматом даты"""
-    mock_message.text = "/complete invalid_date"
+async def test_completed_handler_with_date_invalid_format(mock_message):
+    """Тест: /completed с некорректным форматом даты"""
+    mock_message.text = "/completed invalid_date"
     
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         MockFM.return_value = fm_instance
         
-        await complete_handler(mock_message)
+        await completed_handler(mock_message)
         
         MockFM.return_value.get_archive_dates.assert_not_called()
         MockFM.return_value.get_tasks_by_archive_date.assert_not_called()
@@ -103,16 +103,16 @@ async def test_complete_handler_with_date_invalid_format(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_complete_handler_with_date_no_tasks(mock_message):
-    """Тест: /complete с датой, но без задач"""
-    mock_message.text = "/complete 2026_03_10"
+async def test_completed_handler_with_date_no_tasks(mock_message):
+    """Тест: /completed с датой, но без задач"""
+    mock_message.text = "/completed 2026_03_10"
     
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.get_tasks_by_archive_date.return_value = []
         MockFM.return_value = fm_instance
         
-        await complete_handler(mock_message)
+        await completed_handler(mock_message)
         
         mock_message.answer.assert_called_once()
         response = mock_message.answer.call_args[0][0]
@@ -121,16 +121,16 @@ async def test_complete_handler_with_date_no_tasks(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_complete_handler_with_date_with_tasks(mock_message, sample_tasks):
-    """Тест: /complete с датой и задачами"""
-    mock_message.text = "/complete 2026_03_10"
+async def test_completed_handler_with_date_with_tasks(mock_message, sample_tasks):
+    """Тест: /completed с датой и задачами"""
+    mock_message.text = "/completed 2026_03_10"
     
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.get_tasks_by_archive_date.return_value = sample_tasks
         MockFM.return_value = fm_instance
         
-        await complete_handler(mock_message)
+        await completed_handler(mock_message)
         
         mock_message.answer.assert_called_once()
         response = mock_message.answer.call_args[0][0]
@@ -143,12 +143,12 @@ async def test_complete_handler_with_date_with_tasks(mock_message, sample_tasks)
 
 
 @pytest.mark.asyncio
-async def test_complete_handler_no_user(mock_message):
-    """Тест: /complete без пользователя"""
+async def test_completed_handler_no_user(mock_message):
+    """Тест: /completed без пользователя"""
     mock_message.from_user = None
     
     with patch('handlers.commands.FileManager') as MockFM:
-        await complete_handler(mock_message)
+        await completed_handler(mock_message)
         
         MockFM.assert_not_called()
         mock_message.answer.assert_not_called()
@@ -201,14 +201,14 @@ async def test_archive_handler_no_user(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_complete_handler_with_empty_archives_list(mock_message):
-    """Тест: /complete с пустым списком архивов"""
+async def test_completed_handler_with_empty_archives_list(mock_message):
+    """Тест: /completed с пустым списком архивов"""
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.get_archive_dates.return_value = []
         MockFM.return_value = fm_instance
         
-        await complete_handler(mock_message)
+        await completed_handler(mock_message)
         
         mock_message.answer.assert_called_once()
         response = mock_message.answer.call_args[0][0]
@@ -217,8 +217,8 @@ async def test_complete_handler_with_empty_archives_list(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_complete_handler_multiple_archive_dates(mock_message):
-    """Тест: /complete с несколькими датами архивов"""
+async def test_completed_handler_multiple_archive_dates(mock_message):
+    """Тест: /completed с несколькими датами архивов"""
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.get_archive_dates.return_value = ["2026-03-08", "2026-03-09", "2026-03-10"]
@@ -249,7 +249,7 @@ async def test_complete_handler_multiple_archive_dates(mock_message):
         ]
         MockFM.return_value = fm_instance
         
-        await complete_handler(mock_message)
+        await completed_handler(mock_message)
         
         mock_message.answer.assert_called_once()
         response = mock_message.answer.call_args[0][0]

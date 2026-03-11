@@ -43,7 +43,7 @@ async def start_handler(message: Message):
 /summarize - ручная саммаризация
 /settings delay <мин> - настройка задержки
 /clear inbox - очистить инбокс
-/complete - просмотр архивов
+/completed - просмотр архивов
 /archive - архивация задач
 /help - показать эту справку"""
         
@@ -70,7 +70,7 @@ async def help_handler(message: Message):
 💡 Управление задачами:
 /done_XXX - отметить задачу как выполненную (XXX - номер задачи)
 /del_XXX - удалить задачу (XXX - номер задачи)
-/complete - просмотр архивов задач
+/completed - просмотр архивов задач
 /archive - архивация выполненных задач за сегодня
 
 💡 Подсказки:
@@ -279,8 +279,8 @@ async def delete_task_handler(message: Message):
         await message.answer(f"❌ Задача {task_number} не найдена")
 
 
-@router.message(Command("complete"))
-async def complete_handler(message: Message):
+@router.message(Command("completed"))
+async def completed_handler(message: Message):
     """Показать список дат с архивом или задачи за дату"""
     if message.from_user is None:
         return
@@ -307,7 +307,7 @@ async def complete_handler(message: Message):
         date_input = parts[1]
         
         if not date_input.replace("_", "").isdigit():
-            await message.answer("❌ Неверный формат даты. Используйте: /complete YYYY_MM_DD")
+            await message.answer("❌ Неверный формат даты. Используйте: /completed YYYY_MM_DD")
             return
         
         date_display = date_input.replace("_", "-")
