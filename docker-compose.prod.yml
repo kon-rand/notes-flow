@@ -12,10 +12,10 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-unsloth/Qwen3.5-35B-A3B}
       - DEFAULT_SUMMARIZE_DELAY=${DEFAULT_SUMMARIZE_DELAY:-300}
     ports:
-      - "8080:8080"
+      - "8081:8081"
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthcheck"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/healthcheck"]
       interval: 30s
       timeout: 10s
       retries: 3
