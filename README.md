@@ -82,6 +82,53 @@ docker-compose -f docker-compose.local.yml down
 python bot/main.py
 ```
 
+### API эндпоинты
+
+Бот предоставляет HTTP эндпоинты для проверки здоровья приложения:
+
+| Эндпоинт | Описание |
+|----------|----------|
+| `GET /healthcheck` | Проверка здоровья приложения и подключения к AI API |
+| `GET /ping` | Проверка подключения к AI модели со списком доступных моделей |
+
+**Примеры запросов:**
+
+```bash
+# Проверка здоровья
+curl http://localhost:8080/healthcheck
+
+# Проверка подключения к модели
+curl http://localhost:8080/ping
+```
+
+**Пример ответа `/healthcheck`:**
+
+```json
+{
+  "status": "healthy",
+  "checks": {
+    "ai_api": {
+      "status": "healthy",
+      "base_url": "http://127.0.0.1:8080"
+    }
+  }
+}
+```
+
+**Пример ответа `/ping`:**
+
+```json
+{
+  "status": "ok",
+  "message": "AI API connected",
+  "available_models": ["unsloth/Qwen3.5-35B-A3B", "other-model"],
+  "config": {
+    "base_url": "http://127.0.0.1:8080",
+    "model": "unsloth/Qwen3.5-35B-A3B"
+  }
+}
+```
+
 ## Использование
 
 ### Команды бота

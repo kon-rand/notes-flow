@@ -1,6 +1,8 @@
 import asyncio
 import logging
 
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 
@@ -8,16 +10,27 @@ from bot.config import settings
 from handlers.commands import router as commands_router
 from handlers.messages import router as messages_router
 from handlers.summarizer import router as summarizer_router
+from bot.healthcheck import healthcheck as healthcheck_func, ping as ping_func
 
 logger = logging.getLogger(__name__)
 
 
-async def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+async def healthcheck() -> JSONResponse:
+    """Проверка здоровья приложения и подключения к AI API"""
+    result = await healthcheck_func()
+    status_code = 200 if result["status"] == "healthy" else 503
+    return JSONResponse(content=result, status_code=status_code)
 
+
+async def ping() -> JSONResponse:
+    """Проверка подключения к AI модели"""
+    result = await ping_func()
+    status_code = 200 if result["status"] == "ok" else 503
+    return JSONResponse(content=result, status_code=status_code)
+
+
+async def run_bot():
+    """Запуск Telegram бота"""
     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
     dp = Dispatcher()
 
@@ -45,8 +58,35 @@ async def main():
     await bot.close()
 
 
+async def run_server():
+    """Запуск FastAPI сервера"""
+    app = FastAPI(title="Notes Flow API")
+    app.add_api_route("/healthcheck", healthcheck, methods=["GET"])
+    app.add_api_route("/ping", ping, methods=["GET"])
+
+    import uvicorn
+    logging.info("Starting HTTP server on 0.0.0.0:8080...")
+    config = uvicorn.Config(app, host="0.0.0.0", port=8080, loop="uvloop")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
+async def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    logging.info("Starting Notes Flow application...")
+    
+    bot_task = asyncio.create_task(run_bot())
+    server_task = asyncio.create_task(run_server())
+
+    await asyncio.gather(bot_task, server_task)
+
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("Bot stopped")
+        logging.info("Application stopped")
