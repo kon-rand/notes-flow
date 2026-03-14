@@ -67,7 +67,7 @@ async def test_auto_summarize_group_messages(mock_bot, sample_messages, mock_fil
     """Тест: группировка сообщений через ContextAnalyzer"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         analyzer_instance = MagicMock()
         analyzer_instance.group_messages.return_value = [sample_messages]
@@ -93,10 +93,10 @@ async def test_auto_summarize_group_messages(mock_bot, sample_messages, mock_fil
 
 @pytest.mark.asyncio
 async def test_auto_summarize_create_task(mock_bot, sample_messages, mock_file_manager):
-    """Тест: создание задачи через OllamaClient"""
+    """Тест: создание задачи через OpenAIClient"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         analyzer_instance = MagicMock()
         analyzer_instance.group_messages.return_value = [sample_messages]
@@ -123,10 +123,10 @@ async def test_auto_summarize_create_task(mock_bot, sample_messages, mock_file_m
 
 @pytest.mark.asyncio
 async def test_auto_summarize_create_note(mock_bot, sample_messages, mock_file_manager):
-    """Тест: создание заметки через OllamaClient"""
+    """Тест: создание заметки через OpenAIClient"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         analyzer_instance = MagicMock()
         analyzer_instance.group_messages.return_value = [sample_messages]
@@ -153,10 +153,10 @@ async def test_auto_summarize_create_note(mock_bot, sample_messages, mock_file_m
 
 @pytest.mark.asyncio
 async def test_auto_summarize_skip_group(mock_bot, sample_messages, mock_file_manager):
-    """Тест: пропуск групп через OllamaClient"""
+    """Тест: пропуск групп через OpenAIClient"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         analyzer_instance = MagicMock()
         analyzer_instance.group_messages.return_value = [sample_messages]
@@ -182,7 +182,7 @@ async def test_auto_summarize_clear_inbox(mock_bot, sample_messages, mock_file_m
     """Тест: очистка инбокса после обработки"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         analyzer_instance = MagicMock()
         analyzer_instance.group_messages.return_value = [sample_messages]
@@ -209,7 +209,7 @@ async def test_auto_summarize_send_report(mock_bot, sample_messages, mock_file_m
     """Тест: отправка отчёта о результатах"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         analyzer_instance = MagicMock()
         analyzer_instance.group_messages.return_value = [sample_messages]
@@ -258,7 +258,7 @@ async def test_auto_summarize_multiple_groups(mock_bot, mock_file_manager):
     """Тест: несколько групп сообщений"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         now = datetime.now()
         group1 = [
@@ -300,7 +300,7 @@ async def test_auto_summarize_all_skipped(mock_bot, mock_file_manager):
     """Тест: все группы пропущены"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         now = datetime.now()
         messages = [
@@ -332,7 +332,7 @@ async def test_auto_summarize_only_tasks(mock_bot, mock_file_manager):
     """Тест: только задачи создаются"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         now = datetime.now()
         messages = [
@@ -368,7 +368,7 @@ async def test_auto_summarize_only_notes(mock_bot, mock_file_manager):
     """Тест: только заметки создаются"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
-         patch('handlers.summarizer.OllamaClient') as MockClient:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         now = datetime.now()
         messages = [

@@ -67,20 +67,24 @@ class OpenAIClient:
             return parsed
         except httpx.ConnectError as e:
             logger.error(f"❌ ConnectError: {e}")
-            raise LLMNetworkError("LLM API not available")
+            elapsed = (datetime.now() - start_time).total_seconds()
+            logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
+            return {"action": "skip", "reason": "API not available"}
         except httpx.TimeoutException as e:
             logger.error(f"❌ TimeoutException: {e}")
-            raise LLMTimeoutError(f"Request timeout after {self.client.timeout}s")
+            elapsed = (datetime.now() - start_time).total_seconds()
+            logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
+            return {"action": "skip", "reason": "Request timeout"}
         except httpx.HTTPStatusError as e:
             logger.error(f"❌ HTTPStatusError: {e.response.status_code} - {e.response.text[:200]}")
-            raise LLMResponseError(f"HTTP error: {e.response.status_code}")
+            elapsed = (datetime.now() - start_time).total_seconds()
+            logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
+            return {"action": "skip", "reason": f"HTTP error: {e.response.status_code}"}
         except Exception as e:
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.error(f"❌ Exception после {elapsed:.1f}с: {type(e).__name__}: {e}")
-            raise LLMError(f"Unexpected error: {type(e).__name__}")
-        finally:
-            elapsed = (datetime.now() - start_time).total_seconds()
             logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
+            return {"action": "skip", "reason": f"Unexpected error: {type(e).__name__}"}
 
     def _format_messages(self, messages: List[InboxMessage]) -> str:
         """Форматирование сообщений для промпта"""

@@ -468,7 +468,7 @@ class TestAutoSummarizeIntegration:
 
     @pytest.mark.asyncio
     async def test_auto_summarize_ollama_unavailable(self, clean_data_dir):
-        """Test: Ollama unavailable → inbox cleared → error message"""
+        """Test: Ollama unavailable → inbox NOT cleared → error message"""
         user_id = 123456789
         fm = FileManager()
         
@@ -495,7 +495,7 @@ class TestAutoSummarizeIntegration:
             await auto_summarize(user_id, bot=mock_bot)
             
             inbox_messages = fm.read_messages(user_id)
-            assert len(inbox_messages) == 0
+            assert len(inbox_messages) == 1
             
             mock_bot.send_message.assert_called_once()
 
