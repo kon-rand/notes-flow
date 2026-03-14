@@ -5,7 +5,7 @@ Telegram бот для управления заметками и задачам
 ## Требования
 
 - Python 3.12+
-- Ollama с моделью (например, llama3)
+- Локальная AI-модель (OpenAI-compatible API)
 
 ## Установка
 
@@ -47,11 +47,36 @@ DEFAULT_SUMMARIZE_DELAY=300
 | Переменная | Описание | По умолчанию |
 |------------|----------|--------------|
 | `TELEGRAM_BOT_TOKEN` | Токен вашего бота от @BotFather | (обязательно) |
-| `OLLAMA_BASE_URL` | URL сервера Ollama | `http://localhost:11434` |
-| `OLLAMA_MODEL` | Название модели для саммаризации | `llama3` |
+| `OLLAMA_BASE_URL` | URL AI API (OpenAI-compatible) | `http://localhost:8080` |
+| `OLLAMA_MODEL` | Название модели для саммаризации | `unsloth/Qwen3.5-35B-A3B` |
 | `DEFAULT_SUMMARIZE_DELAY` | Задержка перед саммаризацией в секундах | `300` (5 минут) |
 
-## Запуск
+## Запуск через Docker
+
+### Локальный запуск (с Ollama на хосте)
+
+```bash
+docker-compose -f docker-compose.local.yml up -d
+```
+
+**Важно:**
+- Используется `network_mode: host` для доступа к Ollama на `localhost:8080`
+- Ollama должен быть запущен на хост-машине (не в контейнере)
+- Данные хранятся в `/share/services/notes-flow/data` и `/share/services/notes-flow/logs`
+
+### Просмотр логов
+
+```bash
+docker-compose -f docker-compose.local.yml logs -f
+```
+
+### Остановка
+
+```bash
+docker-compose -f docker-compose.local.yml down
+```
+
+### Запуск через Python (для разработки)
 
 ```bash
 python bot/main.py
@@ -112,7 +137,7 @@ content:
 - ✅ Группировка связанных сообщений по времени и семантике
 - ✅ Создание задач и заметок с тегами
 - ✅ Хранение данных в Markdown-файлах с YAML-фронтматом
-- ✅ Интеграция с локальной AI-моделью (Ollama)
+- ✅ Интеграция с AI-моделью через OpenAI-compatible API
 - ✅ Поддержка пересылок с сохранением оригинального автора
 
 ### Управление
@@ -132,33 +157,37 @@ sudo mkdir -p /share/services/notes-flow/logs
 sudo chown -R $(whoami) /share/services/notes-flow
 ```
 
-2. Настройте переменные окружения:
+2. Запустите AI-модель с OpenAI-compatible API на `localhost:8080`
+
+3. Настройте переменные окружения:
 ```bash
 cp .env.example .env
-# Отредактируйте .env
+# Отредактируйте .env (TELEGRAM_BOT_TOKEN обязателен)
 ```
 
-3. Запустите бот с Ollama:
+4. Запустите бот через Docker:
 ```bash
 docker-compose -f docker-compose.local.yml up -d
 ```
 
-4. Просмотр логов:
+5. Просмотр логов:
 ```bash
 docker-compose -f docker-compose.local.yml logs -f
 ```
 
-5. Остановка:
+6. Остановка:
 ```bash
 docker-compose -f docker-compose.local.yml down
 ```
+
+**Примечание:** docker-compose.local.yml использует `network_mode: host` для доступа к API на `localhost:8080`.
 
 ### Облачный деплой
 
 1. Настройте переменные окружения:
 ```bash
 cp .env.example .env
-# Отредактируйте .env с URL удалённого Ollama
+# Отредактируйте .env с URL удалённого API
 ```
 
 2. Запустите бот:
