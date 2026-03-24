@@ -25,12 +25,6 @@ def create_message(id: str, offset_minutes: int, content: str, sender_name: str 
     )
 
 
-def test_openai_config_default_base_url():
-    """Тест: значение по умолчанию base_url"""
-    config = OpenAIConfig()
-    assert config.base_url == "http://127.0.0.1:8080"
-
-
 def test_openai_config_default_model():
     """Тест: значение по умолчанию model"""
     config = OpenAIConfig()

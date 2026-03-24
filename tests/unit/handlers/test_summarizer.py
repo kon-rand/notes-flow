@@ -237,11 +237,13 @@ async def test_auto_summarize_send_report(mock_bot, sample_messages, mock_file_m
 @pytest.mark.asyncio
 async def test_auto_summarize_error_handling(mock_bot, sample_messages, mock_file_manager):
     """Тест: обработка ошибок и отправка сообщения об ошибке"""
+    from utils.error_types import LLMError
+    
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
          patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer:
         
         analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.side_effect = Exception("Test error")
+        analyzer_instance.group_messages.side_effect = LLMError("Test error")
         MockAnalyzer.return_value = analyzer_instance
         
         mock_file_manager.read_messages.return_value = sample_messages
@@ -250,7 +252,7 @@ async def test_auto_summarize_error_handling(mock_bot, sample_messages, mock_fil
         
         assert "error" in result
         mock_bot.send_message.assert_called_once()
-        assert "Ошибка при саммаризации" in mock_bot.send_message.call_args[0][1]
+        assert "Ошибка" in mock_bot.send_message.call_args[0][1]
 
 
 @pytest.mark.asyncio

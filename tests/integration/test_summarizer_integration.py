@@ -115,7 +115,7 @@ class TestSummarizerIntegration:
     @pytest.mark.asyncio
     async def test_full_summarization_flow(self, test_user_id, clean_data_dir):
         """Тест полной цепочки саммаризации"""
-        from unittest.mock import AsyncMock
+        from unittest.mock import AsyncMock, MagicMock, patch
         
         messages = [
             InboxMessage(
@@ -137,7 +137,19 @@ class TestSummarizerIntegration:
         assert len(loaded) == 1
         
         bot = AsyncMock()
-        result = await auto_summarize(test_user_id, bot)
+        
+        # Mock Ollama response to avoid real API call
+        with patch('handlers.summarizer.OpenAIClient') as MockClient:
+            client_instance = MagicMock()
+            client_instance.summarize_group = AsyncMock(return_value={
+                "action": "create_task",
+                "title": "Разобрать сушилку",
+                "tags": ["ремонт"],
+                "content": "Пользователь просит разобрать сушилку"
+            })
+            MockClient.return_value = client_instance
+            
+            result = await auto_summarize(test_user_id, bot)
         
         assert "error" not in result or result.get("error") is None
         
