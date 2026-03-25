@@ -1,4 +1,5 @@
 import sys
+import pytest
 sys.path.insert(0, '/home/kuzya/projects/notes-flow')
 
 import asyncio
@@ -103,17 +104,14 @@ def test_build_prompt_contains_messages():
     assert "Тестовое сообщение" in result
 
 
-def test_build_prompt_json_structure():
-    """Тест: структура JSON в промпте"""
+def test_build_prompt_contains_instructions():
+    """Тест: промпт содержит инструкции"""
     messages_text = "Тест"
     client = OpenAIClient()
     result = asyncio.run(client._build_prompt(messages_text))
     
-    assert '"action": "create_task"' in result
-    assert '"title":' in result
-    assert '"tags":' in result
-    assert '"content":' in result
-    assert '"reason":' in result
+    assert "Сгруппируй" in result
+    assert "JSON" in result
 
 
 def test_build_prompt_skip_option():
@@ -122,38 +120,43 @@ def test_build_prompt_skip_option():
     client = OpenAIClient()
     result = asyncio.run(client._build_prompt(messages_text))
     
-    assert '"action": "skip"' in result
+    # New prompt format uses JSON array
+    assert '"action":' in result
 
 
 def test_parse_valid_json():
     """Тест: парсинг валидного JSON"""
     client = OpenAIClient()
-    json_str = '{"action": "create_task", "title": "Тест", "tags": ["tag1"], "content": "Контент", "reason": "Потому что"}'
+    # New format: JSON array
+    json_str = '[{"action": "create_task", "title": "Тест", "tags": ["tag1"], "content": "Контент", "source_message_ids": []}]'
     result = client._parse_response(json_str)
     
-    assert result["action"] == "create_task"
-    assert result["title"] == "Тест"
-    assert result["tags"] == ["tag1"]
-    assert result["content"] == "Контент"
-    assert result["reason"] == "Потому что"
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0]["action"] == "create_task"
+    assert result[0]["title"] == "Тест"
+    assert result[0]["tags"] == ["tag1"]
+    assert result[0]["content"] == "Контент"
 
 
 def test_parse_json_with_prefix():
     """Тест: извлечение JSON из ответа с префиксом"""
     client = OpenAIClient()
-    response = 'Ответ: {"action": "create_task", "title": "Задача"}'
+    response = 'Ответ: [{"action": "create_task", "title": "Задача", "tags": [], "content": "", "source_message_ids": []}]'
     result = client._parse_response(response)
     
-    assert result["action"] == "create_task"
+    assert isinstance(result, list)
+    assert result[0]["action"] == "create_task"
 
 
 def test_parse_json_with_suffix():
     """Тест: извлечение JSON из ответа с суффиксом"""
     client = OpenAIClient()
-    response = 'Вот JSON: {"action": "create_note", "title": "Заметка"}'
+    response = 'Вот JSON: [{"action": "create_note", "title": "Заметка", "tags": [], "content": "", "source_message_ids": []}]'
     result = client._parse_response(response)
     
-    assert result["action"] == "create_note"
+    assert isinstance(result, list)
+    assert result[0]["action"] == "create_note"
 
 
 def test_parse_invalid_json():
@@ -161,7 +164,7 @@ def test_parse_invalid_json():
     client = OpenAIClient()
     result = client._parse_response("Это не JSON")
     
-    assert result == {"action": "skip"}
+    assert result == []
 
 
 def test_parse_empty_response():
@@ -169,33 +172,37 @@ def test_parse_empty_response():
     client = OpenAIClient()
     result = client._parse_response("")
     
-    assert result == {"action": "skip"}
+    assert result == []
 
 
 def test_parse_partial_json():
-    """Тест: частичный JSON"""
+    """Тест: частичный JSON (неполный ответ)"""
     client = OpenAIClient()
-    result = client._parse_response("{")
+    result = client._parse_response('{"action": "create_task"')
     
-    assert result == {"action": "skip"}
+    assert result == []
 
 
 def test_parse_skip_action():
-    """Тест: действие skip"""
+    """Тест: parse response с action=skip"""
     client = OpenAIClient()
-    result = client._parse_response('{"action": "skip"}')
+    json_str = '[{"action": "skip", "reason": "Не важно"}]'
+    result = client._parse_response(json_str)
     
-    assert result["action"] == "skip"
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert result[0]["action"] == "skip"
 
 
-async def test_summarize_group_successful_task():
+@pytest.mark.asyncio
+async def test_summarize_messages_successful_task():
     """Тест: успешный запрос к Ollama с create_task"""
     messages = [
         create_message("msg_1", 0, "Нужно подготовить отчёт"),
     ]
     
     mock_response = {
-        "choices": [{"message": {"content": '{"action": "create_task", "title": "Подготовить отчёт", "tags": ["работа"], "content": "Сделать отчёт", "reason": "Есть задача"}'}}]
+        "choices": [{"message": {"content": '[{"action": "create_task", "title": "Подготовить отчёт", "tags": ["работа"], "content": "Сделать отчёт", "source_message_ids": []}]'}}]
     }
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
@@ -205,21 +212,23 @@ async def test_summarize_group_successful_task():
         )
         
         client = OpenAIClient()
-        result = await client.summarize_group(messages)
+        result = await client.summarize_messages(messages)
         
-        assert result["action"] == "create_task"
-        assert result["title"] == "Подготовить отчёт"
+        assert isinstance(result, list)
+        assert result[0]["action"] == "create_task"
+        assert result[0]["title"] == "Подготовить отчёт"
         assert mock_post.called
 
 
-async def test_summarize_group_create_note():
+@pytest.mark.asyncio
+async def test_summarize_messages_create_note():
     """Тест: возврат create_note"""
     messages = [
         create_message("msg_1", 0, "Сохрани идею: использовать async/await"),
     ]
     
     mock_response = {
-        "choices": [{"message": {"content": '{"action": "create_note", "title": "Идея async/await", "tags": ["идеи"], "content": "Использовать async/await", "reason": "Ценная информация"}'}}]
+        "choices": [{"message": {"content": '[{"action": "create_note", "title": "Идея async/await", "tags": ["идеи"], "content": "Использовать async/await", "source_message_ids": []}]'}}]
     }
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
@@ -229,19 +238,21 @@ async def test_summarize_group_create_note():
         )
         
         client = OpenAIClient()
-        result = await client.summarize_group(messages)
+        result = await client.summarize_messages(messages)
         
-        assert result["action"] == "create_note"
+        assert isinstance(result, list)
+        assert result[0]["action"] == "create_note"
         assert mock_post.called
 
 
-async def test_summarize_group_skip():
+@pytest.mark.asyncio
+async def test_summarize_messages_skip():
     """Тест: возврат skip"""
     messages = [
         create_message("msg_1", 0, "Просто сообщение"),
     ]
     
-    mock_response = {"choices": [{"message": {"content": '{"action": "skip"}'}}]}
+    mock_response = {"choices": [{"message": {"content": '[{"action": "skip"}]'}}]}
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = MagicMock(
@@ -250,13 +261,15 @@ async def test_summarize_group_skip():
         )
         
         client = OpenAIClient()
-        result = await client.summarize_group(messages)
+        result = await client.summarize_messages(messages)
         
-        assert result["action"] == "skip"
+        assert isinstance(result, list)
+        assert result[0]["action"] == "skip"
         assert mock_post.called
 
 
-async def test_summarize_group_connect_error():
+@pytest.mark.asyncio
+async def test_summarize_messages_connect_error():
     """Тест: обработка httpx.ConnectError (Ollama недоступен)"""
     messages = [
         create_message("msg_1", 0, "Тест"),
@@ -266,13 +279,13 @@ async def test_summarize_group_connect_error():
         mock_post.side_effect = httpx.ConnectError("Connection refused")
         
         client = OpenAIClient()
-        result = await client.summarize_group(messages)
+        result = await client.summarize_messages(messages)
         
-        assert result["action"] == "skip"
-        assert result["reason"] == "API not available"
+        assert result == []
 
 
-async def test_summarize_group_timeout():
+@pytest.mark.asyncio
+async def test_summarize_messages_timeout():
     """Тест: обработка httpx.TimeoutException (timeout)"""
     messages = [
         create_message("msg_1", 0, "Тест"),
@@ -282,13 +295,13 @@ async def test_summarize_group_timeout():
         mock_post.side_effect = httpx.TimeoutException("Timeout")
         
         client = OpenAIClient()
-        result = await client.summarize_group(messages)
+        result = await client.summarize_messages(messages)
         
-        assert result["action"] == "skip"
-        assert result["reason"] == "Request timeout"
+        assert result == []
 
 
-async def test_summarize_group_http_error():
+@pytest.mark.asyncio
+async def test_summarize_messages_http_error():
     """Тест: обработка некорректного ответа (status_code != 200)"""
     messages = [
         create_message("msg_1", 0, "Тест"),
@@ -301,29 +314,28 @@ async def test_summarize_group_http_error():
         mock_post.return_value = mock_response
         
         client = OpenAIClient()
-        result = await client.summarize_group(messages)
+        result = await client.summarize_messages(messages)
         
-        assert result["action"] == "skip"
-        assert "HTTP error" in result["reason"]
-        assert "500" in result["reason"]
+        assert result == []
 
 
-async def test_summarize_group_empty_messages():
+@pytest.mark.asyncio
+async def test_summarize_messages_empty_messages():
     """Тест: пустая группа сообщений"""
     client = OpenAIClient()
-    result = await client.summarize_group([])
+    result = await client.summarize_messages([])
     
-    assert result["action"] == "skip"
-    assert "Empty" in result["reason"]
+    assert result == []
 
 
-async def test_summarize_group_custom_config():
+@pytest.mark.asyncio
+async def test_summarize_messages_custom_config():
     """Тест: использование кастомной конфигурации"""
     messages = [
         create_message("msg_1", 0, "Тест"),
     ]
     
-    mock_response = {"choices": [{"message": {"content": '{"action": "skip"}'}}]}
+    mock_response = {"choices": [{"message": {"content": '[{"action": "skip"}]'}}]}
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = MagicMock(
@@ -333,20 +345,21 @@ async def test_summarize_group_custom_config():
         
         config = OpenAIConfig(base_url="http://custom:11434", model="test-model")
         client = OpenAIClient(config=config)
-        await client.summarize_group(messages)
+        await client.summarize_messages(messages)
         
         call_args = mock_post.call_args
         assert call_args[1]["json"]["model"] == "test-model"
 
 
-async def test_summarize_group_long_messages():
+@pytest.mark.asyncio
+async def test_summarize_messages_long_messages():
     """Тест: очень длинные сообщения"""
     long_content = "Это очень длинное сообщение " * 100
     messages = [
         create_message("msg_1", 0, long_content),
     ]
     
-    mock_response = {"choices": [{"message": {"content": '{"action": "skip"}'}}]}
+    mock_response = {"choices": [{"message": {"content": '[{"action": "skip"}]'}}]}
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
         mock_post.return_value = MagicMock(
@@ -355,12 +368,14 @@ async def test_summarize_group_long_messages():
         )
         
         client = OpenAIClient()
-        result = await client.summarize_group(messages)
+        result = await client.summarize_messages(messages)
         
-        assert result["action"] == "skip"
+        assert isinstance(result, list)
+        assert result[0]["action"] == "skip"
 
 
-async def test_summarize_group_multiple_messages():
+@pytest.mark.asyncio
+async def test_summarize_messages_multiple_messages():
     """Тест: несколько сообщений в группе"""
     messages = [
         create_message("msg_1", 0, "Первое сообщение"),
@@ -369,7 +384,7 @@ async def test_summarize_group_multiple_messages():
     ]
     
     mock_response = {
-        "choices": [{"message": {"content": '{"action": "create_task", "title": "Обработка нескольких сообщений", "tags": ["test"], "content": "Контент", "reason": "Тест"}'}}]
+        "choices": [{"message": {"content": '[{"action": "create_task", "title": "Обработка нескольких сообщений", "tags": ["test"], "content": "Контент", "source_message_ids": []}]'}}]
     }
     
     with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
@@ -379,6 +394,7 @@ async def test_summarize_group_multiple_messages():
         )
         
         client = OpenAIClient()
-        result = await client.summarize_group(messages)
+        result = await client.summarize_messages(messages)
         
-        assert result["action"] == "create_task"
+        assert isinstance(result, list)
+        assert result[0]["action"] == "create_task"

@@ -33,8 +33,7 @@ notes-flow/
 │   └── summarizer.py        # Запуск саммаризации
 ├── utils/
 │   ├── __init__.py
-│   ├── ollama_client.py     # OllamaClient - запросы к LLM
-│   ├── context_analyzer.py  # ContextAnalyzer - группировка сообщений
+│   ├── ollama_client.py     # OllamaClient - запросы к LLM (группировка + анализ)
 │   └── markdown_parser.py   # Парсинг YAML-фронтмат
 ├── data/
 │   └── {user_id}/
@@ -102,22 +101,11 @@ class Note(BaseModel):
 
 **Путь к файлам**: `data/{user_id}/{type}.md`
 
-### ContextAnalyzer (utils/context_analyzer.py)
-Группировка связанных сообщений:
-- `group_messages(messages)` - главная функция группировки
-- `_group_by_time_window(messages, window_minutes=30)` - по времени
-- `_group_by_similarity(messages)` - по семантике (ключевые слова)
-- `detect_continuation(current, previous)` - поиск ссылок на предыдущие
-
-**Признаки связанности**:
-1. Временная близость (≤ 30 минут)
-2. Общие ключевые слова (≥ 3 совпадения)
-3. Упоминания продолжения ("как я говорил", "ещё по теме")
-
 ### OllamaClient (utils/ollama_client.py)
 Запросы к локальной модели:
-- `summarize_group(messages)` - анализ группы сообщений
-- Возвращает JSON с решением: `create_task`, `create_note`, или `skip`
+- `summarize_messages(messages)` - анализ всех сообщений, LLM сам определяет группировку
+- Возвращает JSON массив с решениями: `[{"action": "create_task"}, {"action": "create_note"}]`
+- LLM сам группирует сообщения по времени (30 мин окно) и семантике (общие слова, продолжение)
 
 **Параметры**:
 - BASE_URL: `http://localhost:11434`
@@ -152,8 +140,9 @@ class Note(BaseModel):
   "content": "Полное описание",
   "reason": "Почему это задача"
 }
+]
 
-Если это не задача - верни: {"action": "skip"}
+Если нет задач - верни пустой массив: []
 ```
 
 ### Для заметок
@@ -167,16 +156,18 @@ class Note(BaseModel):
 - Добавь теги для категоризации
 - Сохрани суть в content
 
-Формат JSON:
-{
-  "action": "create_note",
-  "title": "Название заметки",
-  "tags": ["tag1", "tag2"],
-  "content": "Контент заметки",
-  "reason": "Почему это стоит сохранить"
-}
+Формат JSON (массив):
+[
+  {
+    "action": "create_note",
+    "title": "Название заметки",
+    "tags": ["tag1"],
+    "content": "Суть заметки",
+    "source_message_ids": ["msg_001"]
+  }
+]
 
-Иначе: {"action": "skip"}
+Если нет заметок - верни пустой массив: []
 ```
 
 ---
@@ -196,13 +187,12 @@ class Note(BaseModel):
 
 ### Саммаризация (по истечению задержки)
 1. **[handlers/summarizer.py: auto_summarize]**
-   - `FileManager.read_messages(user_id)`
-   - `ContextAnalyzer.group_messages(messages)`
-   - Для каждой группы:
-     - `OllamaClient.summarize_group(group)`
-     - `FileManager.append_task` ИЛИ `FileManager.append_note`
-   - `FileManager.clear_messages(user_id)`
-   - Отправка отчёта в чат
+    - `FileManager.read_messages(user_id)`
+    - `OllamaClient.summarize_messages(messages)` - группировка + анализ
+    - Для каждой задачи/заметки:
+      - `FileManager.append_task` ИЛИ `FileManager.append_note`
+    - `FileManager.clear_messages(user_id)`
+    - Отправка отчёта в чат
 
 ---
 
@@ -269,6 +259,7 @@ httpx>=0.25.0
 | 19 | TICKET-019.md | ✅ completed | Pre-deploy checks, coverage enforcement, regression e2e tests |
 | 20 | TICKET-020.md | ✅ completed | Изменить формат вывода /completed с навигацией по датам |
 | 21 | TICKET-021.md | ✅ completed | Заменить команду /completed на /archived |
+| 22 | TICKET-022.md | ✅ completed | Рефакторинг саммаризации - убрать ContextAnalyzer |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 
@@ -294,6 +285,7 @@ httpx>=0.25.0
 | 16 | Архивация задач | FileManager.archive_completed_tasks(), /completed, /completed_YYYY_MM_DD, /archive | 🟡 |
 | 17 | Замена команды /completed | handlers/commands.py (rename /complete → /completed) | ✅ |
 | 18 | Замена команды /completed на /archived | handlers/commands.py (rename /completed → /archived) | ✅ |
+| 19 | Рефакторинг саммаризации | Удаление context_analyzer.py, обновление ollama_client.py и summarizer.py | 🟡 |
 
 ---
 

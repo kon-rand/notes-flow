@@ -20,15 +20,19 @@ class OpenAIClient:
         self.config = config or OpenAIConfig()
         self.client = httpx.AsyncClient(base_url=self.config.base_url, timeout=300.0)
 
-    async def summarize_group(self, messages: List[InboxMessage]) -> Dict[str, Any]:
-        """Анализ группы сообщений через OpenAI-compatible API"""
+    async def summarize_messages(self, messages: List[InboxMessage]) -> List[Dict[str, Any]]:
+        """Анализ списка сообщений через OpenAI-compatible API.
+        
+        Возвращает список задач/заметок (может быть 0, 1 или несколько).
+        LLM сам определяет группировку по времени и семантике.
+        """
         from datetime import datetime
         start_time = datetime.now()
         messages_text = self._format_messages(messages)
 
         if not messages_text.strip():
             logger.warning("⚠️ Empty messages text")
-            return {"action": "skip", "reason": "Empty messages"}
+            return []
 
         prompt = await self._build_prompt(messages_text)
         logger.info(f"📡 Отправка запроса в Ollama: {self.config.base_url}/chat/completions")
@@ -38,7 +42,6 @@ class OpenAIClient:
         logger.info(f"   Таймаут: {self.client.timeout}")
 
         try:
-            logger.info(f"📤 Отправка POST запроса...")
             logger.info(f"📤 Отправка POST запроса...")
             response = await self.client.post(
                 "/chat/completions",
@@ -63,28 +66,28 @@ class OpenAIClient:
             raw_response = result.get("choices", [{}])[0].get("message", {}).get("content", "")
             logger.info(f"📥 Получен ответ от модели: {raw_response[:200]}...")
             parsed = self._parse_response(raw_response)
-            logger.info(f"✅ Парсинг завершен: action={parsed.get('action')}, title={parsed.get('title', 'N/A')}")
+            logger.info(f"✅ Парсинг завершен: {len(parsed)} задач/заметок")
             return parsed
         except httpx.ConnectError as e:
             logger.error(f"❌ ConnectError: {e}")
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
-            return {"action": "skip", "reason": "API not available"}
+            return []
         except httpx.TimeoutException as e:
             logger.error(f"❌ TimeoutException: {e}")
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
-            return {"action": "skip", "reason": "Request timeout"}
+            return []
         except httpx.HTTPStatusError as e:
             logger.error(f"❌ HTTPStatusError: {e.response.status_code} - {e.response.text[:200]}")
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
-            return {"action": "skip", "reason": f"HTTP error: {e.response.status_code}"}
+            return []
         except Exception as e:
             elapsed = (datetime.now() - start_time).total_seconds()
             logger.error(f"❌ Exception после {elapsed:.1f}с: {type(e).__name__}: {e}")
             logger.info(f"⏱️ Завершено через {elapsed:.1f}с")
-            return {"action": "skip", "reason": f"Unexpected error: {type(e).__name__}"}
+            return []
 
     def _format_messages(self, messages: List[InboxMessage]) -> str:
         """Форматирование сообщений для промпта"""
@@ -97,108 +100,105 @@ class OpenAIClient:
         return text
 
     async def _build_prompt(self, messages_text: str) -> str:
-        """Формирование промпта для анализа"""
-        task_prompt = f"""Ты помощник для управления задачами. Проанализируй эти сообщения и преврати их в задачи если нужно.
+        """Формирование промпта для анализа.
+        
+        LLM должен сам определить группировку по времени и семантике,
+        и вернуть список всех задач/заметок в одном ответе.
+        """
+        task_prompt = f"""Ты помощник для управления задачами. Проанализируй эти сообщения и создай задачи если нужно.
 
 {messages_text}
 
-ПРАВИЛА:
-1. Любое сообщение с просьбой, поручением, вопросом о действиях - это задача
-2. Короткие сообщения тоже могут быть задачами
-3. Вопросы с "сможешь", "сделаешь", "поможешь" - это задачи
-4. Добавь до 3 тегов
-5. Укажи все детали в content
+ВАЖНО:
+1. Сгруппируй сообщения по времени (до 30 минут) и семантике (общие слова, продолжение темы)
+2. Верни ВСЕ задачи и заметки в одном ответе в формате JSON массива
+3. Любое сообщение с просьбой, поручением, вопросом о действиях - это задача
+4. Короткие сообщения тоже могут быть задачами
+5. Вопросы с "сможешь", "сделаешь", "поможешь" - это задачи
+6. Добавь до 3 тегов на задачу
+7. Укажи все детали в content
 
 ПРИМЕРЫ:
 
-"А сушилку сможешь разобрать?..."
-{{
-  "action": "create_task",
-  "title": "Разобрать сушилку",
-  "tags": ["быт", "техника"],
-  "content": "Разобрать сушилку по просьбе",
-  "reason": "Просьба помочь разобрать технику"
-}}
+"А сушилку сможешь разобрать?"
+→ ["{{"action": "create_task", "title": "Разобрать сушилку", "tags": ["быт", "техника"], "content": "Разобрать сушилку по просьбе", "reason": "Просьба помочь разобрать технику"}}"]
 
-"Сможешь помочь с переездом?"
-{{
-  "action": "create_task",
-  "title": "Помочь с переездом",
-  "tags": ["помощь", "переезд"],
-  "content": "Помочь с переездом по просьбе",
-  "reason": "Просьба помочь с переездом"
-}}
+"Купи молока вечером. Ещё хлеба нужно."
+→ ["{{"action": "create_task", "title": "Купить продукты", "tags": ["покупки"], "content": "Купить молока и хлеба вечером", "reason": "Поручение купить продукты"}}"]
 
-"Купи молока вечером"
-{{
-  "action": "create_task",
-  "title": "Купить молока",
-  "tags": ["покупки"],
-  "content": "Купить молока вечером",
-  "reason": "Поручение купить продукты"
-}}
+"Нужно подготовить отчёт. Вот данные: [ссылка]. Как я говорил, ещё добавь статистику."
+→ ["{{"action": "create_task", "title": "Подготовить отчёт по проекту", "tags": ["работа", "отчёт"], "content": "Собрать данные из файла, добавить статистику, сдать до завтра 10:00", "reason": "Поручение подготовить отчёт с данными и статистикой"}}"]
 
-"Сделаешь мне отчет до пятницы?"
-{{
-  "action": "create_task",
-  "title": "Подготовить отчет",
-  "tags": ["работа", "дедлайн"],
-  "content": "Подготовить отчет до пятницы",
-  "reason": "Поручение подготовить отчет"
-}}
-
-"Запиши встречу на завтра в 14:00"
-{{
-  "action": "create_task",
-  "title": "Встреча на завтра в 14:00",
-  "tags": ["встреча", "календарь"],
-  "content": "Записать встречу на завтра в 14:00",
-  "reason": "Поручение записать встречу"
-}}
-
-"Это просто информация"
-{{
-  "action": "skip",
-  "reason": "Это не задача, а просто информация"
-}}
-
-"Сегодня хорошая погода"
-{{
-  "action": "skip",
-  "reason": "Это просто наблюдение, не задача"
-}}
+"Это просто информация. Сегодня хорошая погода."
+→ [] (пустой массив, если нет задач)
 
 ФОРМАТ ОТВЕТА:
-Если задача - верни:
-{{
-  "action": "create_task",
-  "title": "Краткое название задачи",
-  "tags": ["tag1", "tag2"],
-  "content": "Полное описание",
-  "reason": "Почему это задача"
-}}
+Верни JSON массив, где каждый элемент - это задача или заметка:
 
-Если не задача - верни:
-{{
-  "action": "skip",
-  "reason": "Почему это не задача"
-}}
+[
+  {{
+    "action": "create_task",
+    "title": "Краткое название задачи",
+    "tags": ["tag1", "tag2"],
+    "content": "Полное описание",
+    "reason": "Почему это задача"
+  }},
+  {{
+    "action": "create_note",
+    "title": "Название заметки",
+    "tags": ["tag1"],
+    "content": "Контент заметки",
+    "reason": "Почему это стоит сохранить"
+  }}
+]
+
+Если нет задач - верни пустой массив: []
 """
         return task_prompt
 
-    def _parse_response(self, response_text: str) -> Dict[str, Any]:
-        """Парсинг ответа модели"""
+    def _parse_response(self, response_text: str) -> List[Dict[str, Any]]:
+        """Парсинг ответа модели.
+        
+        Ожидаем JSON массив задач/заметок или пустой массив.
+        """
         import json
 
         logger.debug(f"🔍 Парсинг ответа модели: {response_text[:100]}...")
         try:
-            start = response_text.find("{")
-            end = response_text.rfind("}") + 1
+            # Пытаемся найти массив [...]
+            start = response_text.find("[")
+            end = response_text.rfind("]") + 1
+            
+            if start == -1 or end == 0:
+                # Если массива нет, пытаемся найти объект {} (старый формат)
+                start = response_text.find("{")
+                end = response_text.rfind("}") + 1
+                if start != -1 and end > 0:
+                    json_str = response_text[start:end]
+                    logger.debug(f"   JSON объект (старый формат): {json_str[:100]}...")
+                    result = json.loads(json_str)
+                    # Конвертируем в массив для совместимости
+                    logger.debug(f"✅ JSON распарсен (объект): {result}")
+                    return [result]
+                
+                logger.error(f"❌ Не найден ни массив, ни объект в ответе")
+                return []
+            
             json_str = response_text[start:end]
-            logger.debug(f"   JSON строка: {json_str[:100]}...")
+            logger.debug(f"   JSON массив: {json_str[:100]}...")
             result = json.loads(json_str)
-            logger.debug(f"✅ JSON распарсен: {result}")
+            
+            # Гарантируем что всегда возвращаем список
+            if not isinstance(result, list):
+                logger.warning(f"⚠️ Ожидался массив, получен {type(result).__name__}, конвертируем")
+                result = [result]
+            
+            logger.debug(f"✅ JSON распарсен: {len(result)} элементов")
             return result
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ JSONDecodeError: {e}")
+            logger.error(f"   Текст ответа: {response_text[:200]}")
+            return []
         except Exception as e:
             logger.error(f"❌ Ошибка парсинга: {e}")
-            return {"action": "skip"}
+            return []

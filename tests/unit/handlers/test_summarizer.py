@@ -63,23 +63,19 @@ async def test_auto_summarize_empty_inbox(mock_bot):
 
 
 @pytest.mark.asyncio
-async def test_auto_summarize_group_messages(mock_bot, sample_messages, mock_file_manager):
-    """Тест: группировка сообщений через ContextAnalyzer"""
+async def test_auto_summarize_single_task(mock_bot, sample_messages, mock_file_manager):
+    """Тест: создание одной задачи через summarize_messages"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [sample_messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={
+        client_instance.summarize_messages = AsyncMock(return_value=[{
             "action": "create_task",
             "title": "Купить молоко и позвонить маме",
             "tags": ["покупки", "семья"],
-            "content": "Нужно купить молоко и позвонить маме"
-        })
+            "content": "Нужно купить молоко и позвонить маме",
+            "source_message_ids": ["msg1", "msg2"]
+        }])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = sample_messages
@@ -87,28 +83,23 @@ async def test_auto_summarize_group_messages(mock_bot, sample_messages, mock_fil
         
         await auto_summarize(123, mock_bot)
         
-        analyzer_instance.group_messages.assert_called_once_with(sample_messages)
-        client_instance.summarize_group.assert_called_once_with(sample_messages)
+        client_instance.summarize_messages.assert_called_once_with(sample_messages)
 
 
 @pytest.mark.asyncio
 async def test_auto_summarize_create_task(mock_bot, sample_messages, mock_file_manager):
-    """Тест: создание задачи через OpenAIClient"""
+    """Тест: создание задачи через summarize_messages"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [sample_messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={
+        client_instance.summarize_messages = AsyncMock(return_value=[{
             "action": "create_task",
             "title": "Купить продукты",
             "tags": ["покупки"],
-            "content": "Список продуктов"
-        })
+            "content": "Список продуктов",
+            "source_message_ids": ["msg1"]
+        }])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = sample_messages
@@ -123,22 +114,18 @@ async def test_auto_summarize_create_task(mock_bot, sample_messages, mock_file_m
 
 @pytest.mark.asyncio
 async def test_auto_summarize_create_note(mock_bot, sample_messages, mock_file_manager):
-    """Тест: создание заметки через OpenAIClient"""
+    """Тест: создание заметки через summarize_messages"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [sample_messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={
+        client_instance.summarize_messages = AsyncMock(return_value=[{
             "action": "create_note",
             "title": "Идеи для проекта",
             "tags": ["ideas"],
-            "content": "Концепция проекта"
-        })
+            "content": "Концепция проекта",
+            "source_message_ids": ["msg2"]
+        }])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = sample_messages
@@ -152,21 +139,16 @@ async def test_auto_summarize_create_note(mock_bot, sample_messages, mock_file_m
 
 
 @pytest.mark.asyncio
-async def test_auto_summarize_skip_group(mock_bot, sample_messages, mock_file_manager):
-    """Тест: пропуск групп через OpenAIClient"""
+async def test_auto_summarize_skip_action(mock_bot, sample_messages, mock_file_manager):
+    """Тест: пропуск сообщений через summarize_messages"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [sample_messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={
+        client_instance.summarize_messages = AsyncMock(return_value=[{
             "action": "skip",
             "reason": "Not important"
-        })
+        }])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = sample_messages
@@ -181,20 +163,16 @@ async def test_auto_summarize_skip_group(mock_bot, sample_messages, mock_file_ma
 async def test_auto_summarize_clear_inbox(mock_bot, sample_messages, mock_file_manager):
     """Тест: очистка инбокса после обработки"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [sample_messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={
+        client_instance.summarize_messages = AsyncMock(return_value=[{
             "action": "create_task",
             "title": "Тестовая задача",
             "tags": [],
-            "content": ""
-        })
+            "content": "",
+            "source_message_ids": ["msg1"]
+        }])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = sample_messages
@@ -208,20 +186,16 @@ async def test_auto_summarize_clear_inbox(mock_bot, sample_messages, mock_file_m
 async def test_auto_summarize_send_report(mock_bot, sample_messages, mock_file_manager):
     """Тест: отправка отчёта о результатах"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [sample_messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={
+        client_instance.summarize_messages = AsyncMock(return_value=[{
             "action": "create_task",
             "title": "Тестовая задача",
             "tags": [],
-            "content": ""
-        })
+            "content": "",
+            "source_message_ids": ["msg1"]
+        }])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = sample_messages
@@ -240,11 +214,11 @@ async def test_auto_summarize_error_handling(mock_bot, sample_messages, mock_fil
     from utils.error_types import LLMError
     
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer:
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.side_effect = LLMError("Test error")
-        MockAnalyzer.return_value = analyzer_instance
+        client_instance = MagicMock()
+        client_instance.summarize_messages = AsyncMock(side_effect=LLMError("Test error"))
+        MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = sample_messages
         
@@ -256,52 +230,43 @@ async def test_auto_summarize_error_handling(mock_bot, sample_messages, mock_fil
 
 
 @pytest.mark.asyncio
-async def test_auto_summarize_multiple_groups(mock_bot, mock_file_manager):
-    """Тест: несколько групп сообщений"""
+async def test_auto_summarize_multiple_results(mock_bot, mock_file_manager):
+    """Тест: несколько результатов в одном ответе (задачи + заметки)"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         now = datetime.now()
-        group1 = [
+        messages = [
             InboxMessage(id="m1", from_user=123, sender_id=123, sender_name="User", content="Task 1", 
                         timestamp=now - timedelta(minutes=10), chat_id=123456789),
             InboxMessage(id="m2", from_user=123, sender_id=123, sender_name="User", content="Task 2", 
-                        timestamp=now - timedelta(minutes=9), chat_id=123456789)
-        ]
-        group2 = [
+                        timestamp=now - timedelta(minutes=9), chat_id=123456789),
             InboxMessage(id="m3", from_user=123, sender_id=123, sender_name="User", content="Note 1", 
                         timestamp=now - timedelta(minutes=5), chat_id=123456789)
         ]
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [group1, group2]
-        MockAnalyzer.return_value = analyzer_instance
-        
-        async def summarize_side_effect(group):
-            if len(group) == 2:
-                return {"action": "create_task", "title": "Задача из группы 1", "tags": [], "content": ""}
-            else:
-                return {"action": "create_note", "title": "Заметка из группы 2", "tags": [], "content": ""}
-        
         client_instance = MagicMock()
-        client_instance.summarize_group.side_effect = summarize_side_effect
+        client_instance.summarize_messages = AsyncMock(return_value=[
+            {"action": "create_task", "title": "Задача 1", "tags": [], "content": "", "source_message_ids": ["m1"]},
+            {"action": "create_task", "title": "Задача 2", "tags": [], "content": "", "source_message_ids": ["m2"]},
+            {"action": "create_note", "title": "Заметка 1", "tags": [], "content": "", "source_message_ids": ["m3"]}
+        ])
         MockClient.return_value = client_instance
         
-        mock_file_manager.read_messages.return_value = group1 + group2
+        mock_file_manager.read_messages.return_value = messages
+        mock_file_manager.append_task = MagicMock()
+        mock_file_manager.append_note = MagicMock()
         
         result = await auto_summarize(123, mock_bot)
         
-        assert result["tasks_created"] == 1
+        assert result["tasks_created"] == 2
         assert result["notes_created"] == 1
-        assert client_instance.summarize_group.call_count == 2
 
 
 @pytest.mark.asyncio
 async def test_auto_summarize_all_skipped(mock_bot, mock_file_manager):
-    """Тест: все группы пропущены"""
+    """Тест: все сообщения пропущены"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         now = datetime.now()
@@ -312,12 +277,10 @@ async def test_auto_summarize_all_skipped(mock_bot, mock_file_manager):
                         timestamp=now - timedelta(minutes=9), chat_id=123456789)
         ]
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={"action": "skip", "reason": "Not important"})
+        client_instance.summarize_messages = AsyncMock(return_value=[
+            {"action": "skip", "reason": "Not important"}
+        ])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = messages
@@ -333,7 +296,6 @@ async def test_auto_summarize_all_skipped(mock_bot, mock_file_manager):
 async def test_auto_summarize_only_tasks(mock_bot, mock_file_manager):
     """Тест: только задачи создаются"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         now = datetime.now()
@@ -344,17 +306,10 @@ async def test_auto_summarize_only_tasks(mock_bot, mock_file_manager):
                         timestamp=now - timedelta(minutes=9), chat_id=123456789)
         ]
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={
-            "action": "create_task",
-            "title": "Тестовая задача",
-            "tags": [],
-            "content": ""
-        })
+        client_instance.summarize_messages = AsyncMock(return_value=[
+            {"action": "create_task", "title": "Тестовая задача", "tags": [], "content": "", "source_message_ids": ["m1", "m2"]}
+        ])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = messages
@@ -369,7 +324,6 @@ async def test_auto_summarize_only_tasks(mock_bot, mock_file_manager):
 async def test_auto_summarize_only_notes(mock_bot, mock_file_manager):
     """Тест: только заметки создаются"""
     with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
-         patch('handlers.summarizer.ContextAnalyzer') as MockAnalyzer, \
          patch('handlers.summarizer.OpenAIClient') as MockClient:
         
         now = datetime.now()
@@ -378,17 +332,10 @@ async def test_auto_summarize_only_notes(mock_bot, mock_file_manager):
                         timestamp=now - timedelta(minutes=10), chat_id=123456789)
         ]
         
-        analyzer_instance = MagicMock()
-        analyzer_instance.group_messages.return_value = [messages]
-        MockAnalyzer.return_value = analyzer_instance
-        
         client_instance = MagicMock()
-        client_instance.summarize_group = AsyncMock(return_value={
-            "action": "create_note",
-            "title": "Тестовая заметка",
-            "tags": [],
-            "content": ""
-        })
+        client_instance.summarize_messages = AsyncMock(return_value=[
+            {"action": "create_note", "title": "Тестовая заметка", "tags": [], "content": "", "source_message_ids": ["m1"]}
+        ])
         MockClient.return_value = client_instance
         
         mock_file_manager.read_messages.return_value = messages
@@ -397,3 +344,23 @@ async def test_auto_summarize_only_notes(mock_bot, mock_file_manager):
         
         assert result["tasks_created"] == 0
         assert result["notes_created"] == 1
+
+
+@pytest.mark.asyncio
+async def test_auto_summarize_empty_results_array(mock_bot, sample_messages, mock_file_manager):
+    """Тест: пустой массив результатов от LLM"""
+    with patch('handlers.summarizer.FileManager', return_value=mock_file_manager), \
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
+        
+        client_instance = MagicMock()
+        client_instance.summarize_messages = AsyncMock(return_value=[])
+        MockClient.return_value = client_instance
+        
+        mock_file_manager.read_messages.return_value = sample_messages
+        
+        result = await auto_summarize(123, mock_bot)
+        
+        assert result is not None
+        assert result["tasks_created"] == 0
+        assert result["notes_created"] == 0
+        assert result["skipped"] == 0

@@ -9,7 +9,6 @@ from aiogram.filters import Command
 
 from bot.db.file_manager import FileManager
 from bot.db.models import Task, Note
-from utils.context_analyzer import ContextAnalyzer
 from utils.ollama_client import OpenAIClient, OpenAIConfig
 from utils.error_types import LLMTimeoutError, LLMNetworkError, LLMResponseError, LLMError
 
@@ -58,12 +57,7 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
         return
     
     try:
-        logger.info(f"🔧 Анализ контекста для {len(messages)} сообщений")
-        analyzer = ContextAnalyzer()
-        groups = analyzer.group_messages(messages)
-        logger.info(f"📊 Создано групп для анализа: {len(groups)}")
-        for i, group in enumerate(groups, 1):
-            logger.debug(f"   Группа {i}: {len(group)} сообщений")
+        logger.info(f"🔧 Анализ {len(messages)} сообщений через LLM")
         
         tasks_created = 0
         notes_created = 0
@@ -71,19 +65,22 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
         report = []
         
         client = OpenAIClient()
+        # LLM сам определяет группировку и возвращает список всех задач
+        results = await client.summarize_messages(messages)
+        logger.info(f"📊 LLM вернул {len(results)} задач/заметок")
         
-        for i, group in enumerate(groups, 1):
-            logger.info(f"🔄 Обработка группы {i}/{len(groups)} ({len(group)} сообщений)")
-            result = await client.summarize_group(group)
-            logger.info(f"   → Результат: action={result.get('action')}, title={result.get('title', 'N/A')}")
+        for i, result in enumerate(results, 1):
+            logger.info(f"   [{i}] action={result.get('action')}, title={result.get('title', 'N/A')}")
             
             if result.get("action") == "create_task":
+                # Берём все source_message_ids из результата или создаём новые
+                source_ids = result.get("source_message_ids", [m.id for m in messages])
                 task = Task(
                     id=f"task_{i:03d}",
                     title=result.get("title", f"Задача {i}"),
                     tags=result.get("tags", []),
                     content=result.get("content", ""),
-                    source_message_ids=[m.id for m in group],
+                    source_message_ids=source_ids,
                     created_at=datetime.now()
                 )
                 file_manager.append_task(user_id, task)
@@ -91,12 +88,13 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
                 report.append(f"✅ Создана задача: {result.get('title', '')}")
             
             elif result.get("action") == "create_note":
+                source_ids = result.get("source_message_ids", [m.id for m in messages])
                 note = Note(
                     id=f"note_{i:03d}",
                     title=result.get("title", f"Заметка {i}"),
                     tags=result.get("tags", []),
                     content=result.get("content", ""),
-                    source_message_ids=[m.id for m in group],
+                    source_message_ids=source_ids,
                     created_at=datetime.now()
                 )
                 file_manager.append_note(user_id, note)
@@ -105,9 +103,6 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
             
             else:
                 skipped += 1
-                if group:
-                    preview = group[0].content[:50] + "..." if group[0].content else "группа сообщений"
-                    report.append(f"⏭ Пропущено: {preview}")
         
         if tasks_created > 0 or notes_created > 0:
             logger.info(f"💾 Сохранение backup перед очисткой инбокса")
