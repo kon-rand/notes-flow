@@ -266,6 +266,8 @@ httpx>=0.25.0
 | 17 | TICKET-017.md | ✅ | Замена /complete на /completed |
 | 18 | Добавление ссылок на задачи за конкретную дату в /completed | ⏳ pending - требует проработки |
 | 18 | TICKET-018.md | ✅ completed | Добавление ссылок на задачи за конкретную дату в /completed |
+| 19 | TICKET-019.md | ✅ completed | Pre-deploy checks, coverage enforcement, regression e2e tests |
+| 20 | TICKET-020.md | ✅ completed | Изменить формат вывода /completed с навигацией по датам |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 

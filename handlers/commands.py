@@ -70,7 +70,7 @@ async def help_handler(message: Message):
 💡 Управление задачами:
 /done_XXX - отметить задачу как выполненную (XXX - номер задачи)
 /del_XXX - удалить задачу (XXX - номер задачи)
-/completed - просмотр архивов задач
+/completed - просмотр архивов
 /archive - архивация выполненных задач за сегодня
 
 💡 Подсказки:
@@ -300,7 +300,8 @@ async def completed_handler(message: Message):
         for date in archive_dates:
             tasks = file_manager.get_tasks_by_archive_date(user_id, date)
             task_count = len(tasks)
-            response += f"📅 {date} ({task_count} задач)\n"
+            date_navigate = date.replace("-", "_")
+            response += f"📅 /{date_navigate} ({task_count} задач)\n"
         
         await message.answer(response)
     else:
@@ -325,8 +326,46 @@ async def completed_handler(message: Message):
             response += f"📌 {task.title} [{tags}]\n"
             response += f"   {task.content}\n\n"
         
-        response += "\nℹ️ Используйте /completed YYYY_MM_DD для просмотра задач за другую дату"
         await message.answer(response)
+
+
+@router.message(F.text.startswith("/"))
+async def archive_date_handler(message: Message):
+    if message.from_user is None:
+        return
+    
+    date_input = message.text[1:]
+    
+    if not date_input.replace("_", "").isdigit() or len(date_input) != 10:
+        return
+    
+    parts = date_input.split("_")
+    if len(parts) != 3:
+        return
+    
+    try:
+        year, month, day = parts
+        datetime(int(year), int(month), int(day))
+    except (ValueError, TypeError):
+        return
+    
+    date_display = f"{year}-{month}-{day}"
+    date_file = date_display
+    
+    file_manager = FileManager()
+    tasks = file_manager.get_tasks_by_archive_date(message.from_user.id, date_file)
+    
+    if not tasks:
+        await message.answer(f"Задач за {date_display} не найдено")
+        return
+    
+    response = f"✅ Задачи за {date_display}:\n\n"
+    for task in tasks:
+        tags = ", ".join(task.tags) if task.tags else ""
+        response += f"📌 {task.title} [{tags}]\n"
+        response += f"   {task.content}\n\n"
+    
+    await message.answer(response)
 
 
 @router.message(Command("archive"))
