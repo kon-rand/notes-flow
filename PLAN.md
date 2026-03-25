@@ -268,6 +268,7 @@ httpx>=0.25.0
 | 18 | TICKET-018.md | ✅ completed | Добавление ссылок на задачи за конкретную дату в /completed |
 | 19 | TICKET-019.md | ✅ completed | Pre-deploy checks, coverage enforcement, regression e2e tests |
 | 20 | TICKET-020.md | ✅ completed | Изменить формат вывода /completed с навигацией по датам |
+| 21 | TICKET-021.md | ✅ completed | Заменить команду /completed на /archived |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 
@@ -292,6 +293,7 @@ httpx>=0.25.0
 | 15 | Управление задачами | FileManager.delete_task(), handlers/commands.py (/done_, /del_) | ✅ |
 | 16 | Архивация задач | FileManager.archive_completed_tasks(), /completed, /completed_YYYY_MM_DD, /archive | 🟡 |
 | 17 | Замена команды /completed | handlers/commands.py (rename /complete → /completed) | ✅ |
+| 18 | Замена команды /completed на /archived | handlers/commands.py (rename /completed → /archived) | ✅ |
 
 ---
 
