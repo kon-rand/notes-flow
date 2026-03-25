@@ -64,6 +64,9 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
         skipped = 0
         report = []
         
+        created_tasks = []
+        created_notes = []
+        
         client = OpenAIClient()
         # LLM сам определяет группировку и возвращает список всех задач
         results = await client.summarize_messages(messages)
@@ -86,6 +89,7 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
                 file_manager.append_task(user_id, task)
                 tasks_created += 1
                 report.append(f"✅ Создана задача: {result.get('title', '')}")
+                created_tasks.append(task)
             
             elif result.get("action") == "create_note":
                 source_ids = result.get("source_message_ids", [m.id for m in messages])
@@ -100,6 +104,7 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
                 file_manager.append_note(user_id, note)
                 notes_created += 1
                 report.append(f"📝 Создана заметка: {result.get('title', '')}")
+                created_notes.append(note)
             
             else:
                 skipped += 1
@@ -115,13 +120,36 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
             logger.warning(f"⚠️ Ничего не создано, инбокс не очищается")
         
         if bot:
-            report_text = f"""♻️ Саммаризация завершена:
-
-✅ Задачи создано: {tasks_created}
-📝 Заметок создано: {notes_created}
-⏭ Пропущено: {skipped}
-
-""" + "\n".join(report)
+            report_lines = [
+                "✅ Саммаризация завершена",
+                "",
+                "Создано:",
+                f"- Задач: {tasks_created}",
+                f"- Заметок: {notes_created}",
+                ""
+            ]
+            
+            if created_tasks:
+                report_lines.append("Созданные задачи:")
+                for i, task in enumerate(created_tasks[:10]):
+                    tags_str = ", ".join(task.tags) if task.tags else "нет тегов"
+                    report_lines.append(f"• {task.title} (tags: {tags_str})")
+            
+            if created_notes:
+                report_lines.append("Созданные заметки:")
+                for i, note in enumerate(created_notes[:10]):
+                    report_lines.append(f"• {note.title}")
+            
+            total_items = tasks_created + notes_created
+            if total_items > 10:
+                report_lines.append("")
+                report_lines.append("Показать все: используйте /tasks и /notes")
+            
+            report_lines.append("")
+            report_lines.append("Используйте /tasks для просмотра задач, /notes для просмотра заметок")
+            
+            report_text = "\n".join(report_lines)
+            
             try:
                 await bot.send_message(user_id, report_text.strip())
             except Exception:

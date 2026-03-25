@@ -7,6 +7,7 @@ from aiogram.types.message_origin_chat import MessageOriginChat
 
 from bot.db.file_manager import FileManager
 from bot.db.models import InboxMessage
+from bot.timers.manager import summarizer_timer
 
 
 router = Router()
@@ -69,3 +70,10 @@ async def message_handler(message: Message) -> None:
     
     file_manager.append_message(user_id, inbox_message)
     print(f"DEBUG: Saved message {message.message_id} for user {user_id}")
+    
+    user_name = message.from_user.full_name if message.from_user else None
+    await summarizer_timer.schedule_summarization(
+        user_id=user_id,
+        user_name=user_name,
+        bot=message.bot
+    )

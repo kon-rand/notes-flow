@@ -205,7 +205,7 @@ async def test_auto_summarize_send_report(mock_bot, sample_messages, mock_file_m
         mock_bot.send_message.assert_called_once()
         report_text = mock_bot.send_message.call_args[0][1]
         assert "Саммаризация завершена" in report_text
-        assert "Задачи создано: 1" in report_text
+        assert "Задач:" in report_text
 
 
 @pytest.mark.asyncio
@@ -364,3 +364,71 @@ async def test_auto_summarize_empty_results_array(mock_bot, sample_messages, moc
         assert result["tasks_created"] == 0
         assert result["notes_created"] == 0
         assert result["skipped"] == 0
+
+
+@pytest.mark.asyncio
+async def test_auto_summarize_sends_enhanced_result_notification(mock_bot):
+    """Verify detailed format with tasks and notes"""
+    with patch('handlers.summarizer.FileManager') as MockFM, \
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
+        
+        fm_instance = MagicMock()
+        now = datetime.now()
+        fm_instance.read_messages.return_value = [
+            InboxMessage(id="msg1", from_user=123, sender_id=123, sender_name="User", 
+                        content="Купить молоко", timestamp=now - timedelta(minutes=10), chat_id=123)
+        ]
+        
+        client_instance = MagicMock()
+        client_instance.summarize_messages = AsyncMock(return_value=[
+            {"action": "create_task", "title": "Купить молоко", "tags": ["покупки"], "content": "", "source_message_ids": ["msg1"]}
+        ])
+        MockClient.return_value = client_instance
+        MockFM.return_value = fm_instance
+        
+        await auto_summarize(user_id=123, bot=mock_bot)
+        
+        # Verify enhanced notification was sent
+        mock_bot.send_message.assert_called_once()
+        message = mock_bot.send_message.call_args[0][1]
+        assert "✅ Саммаризация завершена" in message
+        assert "Задач:" in message
+        assert "Купить молоко" in message
+        assert "покупки" in message
+
+
+@pytest.mark.asyncio
+async def test_auto_summarize_notification_limits_to_10_items(mock_bot):
+    """Verify pagination logic"""
+    with patch('handlers.summarizer.FileManager') as MockFM, \
+         patch('handlers.summarizer.OpenAIClient') as MockClient:
+        
+        fm_instance = MagicMock()
+        # Create 15 messages
+        now = datetime.now()
+        messages = [
+            InboxMessage(id=f"msg{i}", from_user=123, sender_id=123, sender_name="User", 
+                        content=f"Task {i}", timestamp=now - timedelta(minutes=i), chat_id=123)
+            for i in range(15)
+        ]
+        fm_instance.read_messages.return_value = messages
+        
+        client_instance = MagicMock()
+        # Return 15 tasks
+        client_instance.summarize_messages = AsyncMock(return_value=[
+            {"action": "create_task", "title": f"Task {i}", "tags": [], "content": "", "source_message_ids": [f"msg{i}"]}
+            for i in range(15)
+        ])
+        MockClient.return_value = client_instance
+        MockFM.return_value = fm_instance
+        
+        await auto_summarize(user_id=123, bot=mock_bot)
+        
+        message = mock_bot.send_message.call_args[0][1]
+        # Check for pagination hint - using exact text from implementation
+        assert "/tasks и /notes" in message or "Показать все" in message
+        # Verify only first 10 are listed (count Task occurrences in task list section)
+        # The message has format "• Task X" in "Созданные задачи:" section
+        lines = message.split('\n')
+        task_lines = [l for l in lines if l.startswith('• Task')]
+        assert len(task_lines) == 10

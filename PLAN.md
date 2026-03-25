@@ -261,6 +261,7 @@ httpx>=0.25.0
 | 21 | TICKET-021.md | ✅ completed | Заменить команду /completed на /archived |
 | 22 | TICKET-022.md | ✅ completed | Рефакторинг саммаризации - убрать ContextAnalyzer |
 | 23 | TICKET-023.md | ✅ completed | Исправить команду /settings (пер-пользовательские настройки, поддержка /settings <minutes>) |
+| 24 | TICKET-024.md | ✅ completed | Добавить уведомления о начале и результате саммаризации |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 
@@ -288,6 +289,7 @@ httpx>=0.25.0
 | 18 | Замена команды /completed на /archived | handlers/commands.py (rename /completed → /archived) | ✅ |
 | 19 | Рефакторинг саммаризации | Удаление context_analyzer.py, обновление ollama_client.py и summarizer.py | 🟡 |
 | 20 | Исправление команды /settings | handlers/commands.py - поддержка /settings <minutes>, пер-пользовательские настройки | ✅ |
+| 21 | Уведомления о саммаризации | handlers/summarizer.py, bot/timers/manager.py - уведомления о начале и результате | ✅ |
 
 ---
 
