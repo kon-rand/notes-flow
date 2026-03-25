@@ -323,8 +323,8 @@ async def test_settings_handler_invalid(mock_message):
     """Тест: /settings с некорректными аргументами"""
     mock_message.text = "/settings delay abc"
     
-    with patch('bot.config.settings') as mock_settings:
-        mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
+    with patch('handlers.commands.user_settings') as mock_user_settings:
+        mock_user_settings.get_user_delay.return_value = 300
         
         await settings_handler(mock_message)
         
@@ -333,16 +333,70 @@ async def test_settings_handler_invalid(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_settings_handler_zero_delay(mock_message):
-    """Тест: /settings delay 0 (минимальная задержка)"""
-    with patch('bot.config.settings') as mock_settings, \
+async def test_settings_handler_short_form(mock_message):
+    """Тест: /settings 10 (новый формат)"""
+    with patch('handlers.commands.user_settings') as mock_user_settings, \
          patch('handlers.commands.summarizer_timer') as mock_timer_instance:
         
-        mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
+        mock_user_settings.get_user_delay.return_value = 300
         mock_timer_instance.reset = AsyncMock()
         mock_timer_instance.schedule_summarization = AsyncMock()
         
-        mock_message.text = "/settings delay 0"
+        mock_message.text = "/settings 10"
+        
+        await settings_handler(mock_message)
+        
+        mock_user_settings.set_delay.assert_called_once_with(123456789, 600)
+        mock_message.answer.assert_called_once()
+        assert "Задержка установлена на 10 минут" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_settings_handler_show_current(mock_message):
+    """Тест: /settings (показать текущую задержку)"""
+    with patch('handlers.commands.user_settings') as mock_user_settings:
+        
+        mock_user_settings.get_user_delay.return_value = 600
+        
+        mock_message.text = "/settings"
+        
+        await settings_handler(mock_message)
+        
+        mock_user_settings.get_user_delay.assert_called_once_with(123456789)
+        mock_message.answer.assert_called_once()
+        assert "Текущая задержка: 10 минут" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_settings_handler_old_format(mock_message):
+    """Тест: /settings delay 15 (старый формат)"""
+    with patch('handlers.commands.user_settings') as mock_user_settings, \
+         patch('handlers.commands.summarizer_timer') as mock_timer_instance:
+        
+        mock_user_settings.get_user_delay.return_value = 300
+        mock_timer_instance.reset = AsyncMock()
+        mock_timer_instance.schedule_summarization = AsyncMock()
+        
+        mock_message.text = "/settings delay 15"
+        
+        await settings_handler(mock_message)
+        
+        mock_user_settings.set_delay.assert_called_once_with(123456789, 900)
+        mock_message.answer.assert_called_once()
+        assert "Задержка установлена на 15 минут" in mock_message.answer.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_settings_handler_zero_delay(mock_message):
+    """Тест: /settings 0 (минимальная задержка)"""
+    with patch('handlers.commands.user_settings') as mock_user_settings, \
+         patch('handlers.commands.summarizer_timer') as mock_timer_instance:
+        
+        mock_user_settings.get_user_delay.return_value = 300
+        mock_timer_instance.reset = AsyncMock()
+        mock_timer_instance.schedule_summarization = AsyncMock()
+        
+        mock_message.text = "/settings 0"
         
         await settings_handler(mock_message)
         
@@ -352,15 +406,15 @@ async def test_settings_handler_zero_delay(mock_message):
 
 @pytest.mark.asyncio
 async def test_settings_handler_negative_delay(mock_message):
-    """Тест: /settings delay с отрицательным значением"""
-    with patch('bot.config.settings') as mock_settings, \
+    """Тест: /settings с отрицательным значением"""
+    with patch('handlers.commands.user_settings') as mock_user_settings, \
          patch('handlers.commands.summarizer_timer') as mock_timer_instance:
         
-        mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
+        mock_user_settings.get_user_delay.return_value = 300
         mock_timer_instance.reset = AsyncMock()
         mock_timer_instance.schedule_summarization = AsyncMock()
         
-        mock_message.text = "/settings delay -5"
+        mock_message.text = "/settings -5"
         
         await settings_handler(mock_message)
         

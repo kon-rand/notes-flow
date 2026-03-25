@@ -1,13 +1,20 @@
 import asyncio
-from typing import Dict
+from typing import Dict, Optional
+
+from ..config.user_settings import user_settings
 
 
 class SummarizeTimer:
     def __init__(self) -> None:
         self.timers: Dict[int, asyncio.Task] = {}
 
-    async def schedule_summarization(self, user_id: int, delay_seconds: int) -> None:
+    async def schedule_summarization(
+        self, user_id: int, delay_seconds: Optional[int] = None
+    ) -> None:
         """Запланировать саммаризацию с задержкой"""
+        if delay_seconds is None:
+            delay_seconds = user_settings.get_user_delay(user_id)
+
         if user_id in self.timers:
             old_task = self.timers[user_id]
             old_task.cancel()

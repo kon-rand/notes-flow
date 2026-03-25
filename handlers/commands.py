@@ -9,6 +9,7 @@ from datetime import datetime
 from bot.timers.manager import SummarizeTimer, summarizer_timer
 from bot.db.file_manager import FileManager
 from bot.config import settings
+from bot.config.user_settings import user_settings
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,27 @@ async def settings_handler(message: Message):
         return
     parts = message.text.split() if message.text else []
     
-    if len(parts) > 2 and parts[1] == "delay":
+    user_id = message.from_user.id
+    
+    if len(parts) == 2:
+        try:
+            delay_minutes = int(parts[1])
+            delay_seconds = delay_minutes * 60
+            
+            if delay_minutes < 1:
+                await message.answer("Задержка должна быть не менее 1 минуты")
+                return
+            
+            user_settings.set_delay(user_id, delay_seconds)
+            await summarizer_timer.reset(user_id)
+            asyncio.create_task(summarizer_timer.schedule_summarization(user_id, delay_seconds))
+            await message.answer(f"Задержка установлена на {delay_minutes} минут ({delay_seconds} секунд)")
+            return
+        except ValueError:
+            await message.answer("Некорректное значение задержки. Используйте: /settings <минуты>")
+            return
+    
+    elif len(parts) > 2 and parts[1] == "delay":
         try:
             delay_minutes = int(parts[2])
             delay_seconds = delay_minutes * 60
@@ -104,24 +125,18 @@ async def settings_handler(message: Message):
                 await message.answer("Задержка должна быть не менее 1 минуты")
                 return
             
-            # Сохранить в settings (в реальном проекте нужно сохранять в БД)
-            settings.DEFAULT_SUMMARIZE_DELAY = delay_seconds
-            
-            # Сбросить текущий таймер для пользователя
-            from bot.timers.manager import summarizer_timer
-            await summarizer_timer.reset(message.from_user.id)
-            
-            # Запустить новый таймер с новой задержкой
-            asyncio.create_task(summarizer_timer.schedule_summarization(message.from_user.id, delay_seconds))
-            
+            user_settings.set_delay(user_id, delay_seconds)
+            await summarizer_timer.reset(user_id)
+            asyncio.create_task(summarizer_timer.schedule_summarization(user_id, delay_seconds))
             await message.answer(f"Задержка установлена на {delay_minutes} минут ({delay_seconds} секунд)")
             return
         except ValueError:
-            await message.answer("Некорректное значение задержки. Используйте: /settings delay <минуты>")
+            await message.answer("Некорректное значение задержки. Используйте: /settings <минуты>")
             return
     else:
-        current_delay_minutes = settings.DEFAULT_SUMMARIZE_DELAY // 60
-        await message.answer(f"Текущая задержка: {current_delay_minutes} минут\nИспользуйте: /settings delay <минуты>")
+        current_delay = user_settings.get_user_delay(user_id)
+        current_delay_minutes = current_delay // 60
+        await message.answer(f"Текущая задержка: {current_delay_minutes} минут\nИспользуйте: /settings <минуты>")
 
 
 @router.message(Command("inbox"))
