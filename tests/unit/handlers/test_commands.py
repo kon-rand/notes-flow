@@ -161,11 +161,11 @@ async def test_help_handler(mock_message):
 async def test_summarize_handler(mock_message):
     """Тест: /summarize запускает саммаризацию"""
     with patch('handlers.summarizer.auto_summarize', new_callable=AsyncMock) as mock_auto_summarize:
-        mock_bot = MagicMock()
+        mock_message.bot = MagicMock()
         
-        await summarize_command(mock_message, mock_bot)
+        await summarize_command(mock_message)
         
-        mock_auto_summarize.assert_called_once_with(mock_message.from_user.id, mock_bot)
+        mock_auto_summarize.assert_called_once_with(mock_message.from_user.id, mock_message.bot)
         mock_message.answer.assert_called()
 
 

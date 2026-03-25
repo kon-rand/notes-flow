@@ -19,15 +19,19 @@ router = Router()
 
 
 @router.message(Command("summarize"))
-async def summarize_command(message: Message, bot: Bot):
+async def summarize_command(message: Message):
     """Обработчик команды /summarize"""
-    logger.debug(f"🔍 Команда /summarize получена от пользователя {message.from_user.id if message.from_user else 'unknown'}")
+    logger.info(f"🔍 /summarize: user_id={message.from_user.id if message.from_user else 'None'}, text={message.text}, chat_id={message.chat.id}")
     if message.from_user is None:
         logger.warning("⚠️ message.from_user is None")
         return
-    await message.answer("Запуск саммаризации...")
+    try:
+        await message.answer("Запуск саммаризации...")
+        logger.info(f"✅ Ответ отправлен пользователю {message.from_user.id}")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при отправке ответа: {e}")
     logger.info(f"🚀 Запуск auto_summarize для пользователя {message.from_user.id}")
-    await auto_summarize(message.from_user.id, bot)
+    await auto_summarize(message.from_user.id, message.bot)
 
 
 async def auto_summarize(user_id: int, bot: Optional[Bot] = None):

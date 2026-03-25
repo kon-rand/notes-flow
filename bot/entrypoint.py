@@ -42,7 +42,7 @@ async def run_bot():
         BotCommand(command="tasks", description="список задач"),
         BotCommand(command="notes", description="список заметок"),
         BotCommand(command="clear", description="очистка инбокса"),
-        BotCommand(command="complete", description="просмотр архивов"),
+        BotCommand(command="archived", description="просмотр архивов"),
         BotCommand(command="archive", description="архивация задач"),
     ]
     await bot.set_my_commands(commands)
@@ -52,7 +52,7 @@ async def run_bot():
     dp.include_router(summarizer_router)
 
     logging.info("Starting bot...")
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
     await bot.close()
 
@@ -77,7 +77,6 @@ async def main():
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-
     logging.info("Starting Notes Flow application...")
     
     bot_task = asyncio.create_task(run_bot())

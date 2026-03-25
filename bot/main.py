@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 
 from bot.config import settings
-from handlers.commands import router as commands_router
+from handlers.commands import router as commands_router, archive_router
 from handlers.messages import router as messages_router
 from handlers.summarizer import router as summarizer_router
 
@@ -30,14 +30,15 @@ async def main():
         BotCommand(command="tasks", description="список задач"),
         BotCommand(command="notes", description="список заметок"),
         BotCommand(command="clear", description="очистка инбокса"),
-        BotCommand(command="complete", description="просмотр архивов"),
+        BotCommand(command="archived", description="просмотр архивов"),
         BotCommand(command="archive", description="архивация задач"),
     ]
     await bot.set_my_commands(commands)
 
-    dp.include_router(commands_router)
-    dp.include_router(messages_router)
     dp.include_router(summarizer_router)
+    dp.include_router(commands_router)
+    dp.include_router(archive_router)
+    dp.include_router(messages_router)
 
     logging.info("Starting bot...")
     await dp.start_polling(bot)

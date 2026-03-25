@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.filters import Command
@@ -9,6 +10,7 @@ from bot.timers.manager import SummarizeTimer, summarizer_timer
 from bot.db.file_manager import FileManager
 from bot.config import settings
 
+logger = logging.getLogger(__name__)
 
 router = Router()
 
@@ -331,9 +333,18 @@ async def archived_handler(message: Message):
 
 
 
-@router.message(F.text.startswith("/"))
+archive_router = Router()
+
+@archive_router.message(F.text.startswith("/"))
 async def archive_date_handler(message: Message):
     if message.from_user is None:
+        return
+    
+    logger.info(f"🔍 archive_date_handler: text={message.text}, user_id={message.from_user.id}")
+    
+    # Игнорируем команды, которые обрабатываются другими хендлерами
+    if message.text in ["/summarize", "/start", "/help", "/settings", "/inbox", "/tasks", "/notes", "/clear", "/archive", "/archived"]:
+        logger.info(f"   → Skipping command {message.text} (handled by other handler)")
         return
     
     date_input = message.text[1:]
