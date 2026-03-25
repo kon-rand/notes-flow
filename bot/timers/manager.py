@@ -47,6 +47,8 @@ class SummarizeTimer:
         bot: Optional[Bot] = None
     ) -> None:
         """Асинхронный таймер с задержкой"""
+        await asyncio.sleep(delay)
+        
         if bot:
             display_name = user_name or str(user_id)
             try:
@@ -56,8 +58,6 @@ class SummarizeTimer:
                 )
             except Exception:
                 pass
-        
-        await asyncio.sleep(delay)
 
         from handlers.summarizer import auto_summarize
         await auto_summarize(user_id, bot=bot)
