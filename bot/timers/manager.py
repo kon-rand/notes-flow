@@ -30,6 +30,17 @@ class SummarizeTimer:
                 pass
             del self.timers[user_id]
 
+        # Отправляем уведомление СРАЗУ при планировании
+        if bot:
+            display_name = user_name or str(user_id)
+            try:
+                await bot.send_message(
+                    user_id,
+                    f"🔄 Саммаризация сообщений началась для пользователя {display_name}"
+                )
+            except Exception:
+                pass
+
         task = asyncio.create_task(
             self._wait_and_summarize(user_id, delay_seconds, user_name, bot)
         )
@@ -84,16 +95,6 @@ class SummarizeTimer:
     ) -> None:
         """Асинхронный таймер с задержкой"""
         await asyncio.sleep(delay)
-        
-        if bot:
-            display_name = user_name or str(user_id)
-            try:
-                await bot.send_message(
-                    user_id,
-                    f"🔄 Саммаризация сообщений началась для пользователя {display_name}"
-                )
-            except Exception:
-                pass
 
         from handlers.summarizer import auto_summarize
         await auto_summarize(user_id, bot=bot)
