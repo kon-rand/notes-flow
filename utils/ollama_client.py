@@ -138,7 +138,7 @@ class OpenAIClient:
 Самоотзыв за три месяца работы в фидбечницу написать, формат как обычно, ревьюшный, типа https://wiki.yandex-team.ru/lavka/dev/samootzyv-dev-062025/ .
 
 Справишься? К 8му апреля получается в твоем случае )"
-→ [{{"action": "create_task", "title": "Написать самоотзыв к 8-му апреля @Maxim Tokarev", "tags": ["assignment", "vacation", "priority"], "content": "Написать самоотзыв в фидбечницу за три месяца работы. Формат отзыва https://wiki.yandex-team.ru/lavka/dev/samootzyv-dev-062025/", "reason": "Максим Tokarev уезжает в отпуск и передает домашнее задание Константину Zakhmatov. КОНКРЕТНОЕ ДЕЙСТВИЕ: написать самоотзыв, а не уточнять детали!"}}]
+→ [{{"action": "create_task", "title": "Написать самоотзыв к 8-му апреля @Maxim Tokarev", "tags": ["assignment", "vacation", "priority"], "content": "Написать самоотзыв в фидбечницу за три месяца работы. Формат ревьюшный: https://wiki.yandex-team.ru/lavka/dev/samootzyv-dev-062025/", "reason": "Максим Tokarev уезжает в отпуск и передает домашнее задание Константину Zakhmatov. КОНКРЕТНОЕ ДЕЙСТВИЕ: написать самоотзыв, а не уточнять детали!"}}]
 
 "А сушилку сможешь разобрать?"
 → [{{"action": "create_task", "title": "Разобрать сушилку", "tags": ["быт", "техника"], "content": "Разобрать сушилку по просьбе", "reason": "Просьба помочь разобрать технику"}}]
