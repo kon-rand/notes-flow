@@ -21,17 +21,8 @@ class SummarizeTimer:
         if delay_seconds is None:
             delay_seconds = user_settings.get_user_delay(user_id)
 
-        if user_id in self.timers:
-            old_task = self.timers[user_id]
-            old_task.cancel()
-            try:
-                await old_task
-            except asyncio.CancelledError:
-                pass
-            del self.timers[user_id]
-
-        # Отправляем уведомление СРАЗУ при планировании
-        if bot:
+        # Отправляем уведомление ТОЛЬКО при первом сообщении (новый таймер)
+        if user_id not in self.timers and bot:
             display_name = user_name or str(user_id)
             try:
                 await bot.send_message(
@@ -40,6 +31,15 @@ class SummarizeTimer:
                 )
             except Exception:
                 pass
+
+        if user_id in self.timers:
+            old_task = self.timers[user_id]
+            old_task.cancel()
+            try:
+                await old_task
+            except asyncio.CancelledError:
+                pass
+            del self.timers[user_id]
 
         task = asyncio.create_task(
             self._wait_and_summarize(user_id, delay_seconds, user_name, bot)
