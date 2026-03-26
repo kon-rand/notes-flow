@@ -133,6 +133,13 @@ class OpenAIClient:
 
 ПРИМЕРЫ:
 
+"Кость, я тут в отпуск подумал походить, есть домашнее задание для тебя 🙈️️️️️️
+
+Самоотзыв за три месяца работы в фидбечницу написать, формат как обычно, ревьюшный, типа https://wiki.yandex-team.ru/lavka/dev/samootzyv-dev-062025/ .
+
+Справишься? К 8му апреля получается в твоем случае )"
+→ [{{"action": "create_task", "title": "Написать самоотзыв к 8-му апреля @Maxim Tokarev", "tags": ["assignment", "vacation", "priority"], "content": "Написать самоотзыв в фидбечницу за три месяца работы. Формат отзыва https://wiki.yandex-team.ru/lavka/dev/samootzyv-dev-062025/", "reason": "Максим Tokarev уезжает в отпуск и передает домашнее задание Константину Zakhmatov"}}]
+
 "А сушилку сможешь разобрать?"
 → [{{"action": "create_task", "title": "Разобрать сушилку", "tags": ["быт", "техника"], "content": "Разобрать сушилку по просьбе", "reason": "Просьба помочь разобрать технику"}}]
 
@@ -149,13 +156,6 @@ class OpenAIClient:
 
 "привет, в файле taskrouter/doc/api/models/user_activity.yaml нет required, это правильно? там больше обязательных полей, но часть из них просто nullable добавишь плиз, как время будет"
 → [{{"action": "create_task", "title": "Добавить required поля в user_activity.yaml и написать Арине @ease_l", "tags": ["api", "yaml", "документация"], "content": "Arina заметила отсутствие required в файле taskrouter/doc/api/models/user_activity.yaml. Добавить обязательные поля (user_id, role_ids и другие). Написать Arine @ease_l, что задача взята в работу", "reason": "Arina попросила добавить required поля в YAML файл"}}]
-
-"Кость, я тут в отпуск подумал походить, есть домашнее задание для тебя 🙈️️️️️️
-
-Самоотзыв за три месяца работы в фидбечницу написать, формат как обычно, ревьюшный, типа https://wiki.yandex-team.ru/lavka/dev/samootzyv-dev-062025/ .
-
-Справишься? К 8му апреля получается в твоем случае )"
-→ [{{"action": "create_task", "title": "Написать самоотзыв к 8-му апреля @Maxim Tokarev", "tags": ["assignment", "vacation", "priority"], "content": "Написать самоотзыв в фидбечницу за три месяца работы. Формат отзыва https://wiki.yandex-team.ru/lavka/dev/samootzyv-dev-062025/", "reason": "Максим Tokarev уезжает в отпуск и передает домашнее задание Константину Zakhmatov"}}]
 
 "Это просто информация. Сегодня хорошая погода."
 → [] (пустой массив, если нет задач)
