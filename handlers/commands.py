@@ -364,17 +364,22 @@ async def archive_date_handler(message: Message):
     
     date_input = message.text[1:]
     
-    if not date_input.replace("_", "").isdigit() or len(date_input) != 10:
-        return
-    
-    parts = date_input.split("_")
-    if len(parts) != 3:
+    if not date_input.replace("_", "").replace("-", "").isdigit() or len(date_input) != 10:
+        logger.info(f"   → Invalid date format: '{date_input}'")
         return
     
     try:
-        year, month, day = parts
+        if "_" in date_input:
+            year, month, day = date_input.split("_")
+        elif "-" in date_input:
+            year, month, day = date_input.split("-")
+        else:
+            logger.info(f"   → No separator found")
+            return
+        
         datetime(int(year), int(month), int(day))
     except (ValueError, TypeError):
+        logger.info(f"   → Invalid date values")
         return
     
     date_display = f"{year}-{month}-{day}"
