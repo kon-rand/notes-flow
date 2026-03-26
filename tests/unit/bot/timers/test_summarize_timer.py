@@ -11,7 +11,7 @@ def timer():
 
 @pytest.fixture
 def mock_bot():
-    bot = AsyncMock()
+    bot = MagicMock()
     bot.send_message = AsyncMock()
     return bot
 
@@ -27,10 +27,10 @@ async def test_schedule_summarization_with_user_name(timer, mock_bot):
             bot=mock_bot
         )
         
-        # Wait for timer to complete
-        await asyncio.sleep(2)
+        # Wait for timer to complete (sleep + delay + notification)
+        await asyncio.sleep(2.5)
         
-        # Verify start notification was sent (check first call only)
+        # Verify start notification was sent
         assert mock_bot.send_message.called
         first_call_args = mock_bot.send_message.call_args_list[0]
         assert first_call_args[0][0] == 123  # user_id
@@ -48,7 +48,8 @@ async def test_wait_and_summarize_handles_missing_user_name(timer, mock_bot):
             bot=mock_bot
         )
         
-        await asyncio.sleep(2)
+        # Wait for timer to complete
+        await asyncio.sleep(2.5)
         
         # Verify notification was sent with user_id (check first call)
         first_call_args = mock_bot.send_message.call_args_list[0]

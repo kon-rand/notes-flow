@@ -21,24 +21,10 @@ class SummarizeTimer:
         if delay_seconds is None:
             delay_seconds = user_settings.get_user_delay(user_id)
 
-        # Отправляем уведомление ТОЛЬКО при первом сообщении (новый таймер)
-        if user_id not in self.timers and bot:
-            display_name = user_name or str(user_id)
-            try:
-                await bot.send_message(
-                    user_id,
-                    f"🔄 Саммаризация сообщений началась для пользователя {display_name}"
-                )
-            except Exception:
-                pass
-
         if user_id in self.timers:
             old_task = self.timers[user_id]
             old_task.cancel()
-            try:
-                await old_task
-            except asyncio.CancelledError:
-                pass
+            # Не ждём завершения отменённой задачи, чтобы она не отправила уведомление
             del self.timers[user_id]
 
         task = asyncio.create_task(
@@ -51,10 +37,7 @@ class SummarizeTimer:
         if user_id in self.timers:
             task = self.timers[user_id]
             task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+            # Не ждём завершения отменённой задачи, чтобы она не отправила уведомление
             del self.timers[user_id]
 
     async def trigger_immediate_summarization(
@@ -77,10 +60,7 @@ class SummarizeTimer:
         if user_id in self.timers:
             old_task = self.timers[user_id]
             old_task.cancel()
-            try:
-                await old_task
-            except asyncio.CancelledError:
-                pass
+            # Не ждём завершения отменённой задачи, чтобы она не отправила уведомление
             del self.timers[user_id]
         
         from handlers.summarizer import auto_summarize
@@ -95,6 +75,17 @@ class SummarizeTimer:
     ) -> None:
         """Асинхронный таймер с задержкой"""
         await asyncio.sleep(delay)
+        
+        # Отправляем уведомление ПОСЛЕ задержки, когда начинается обработка
+        if bot:
+            display_name = user_name or str(user_id)
+            try:
+                await bot.send_message(
+                    user_id,
+                    f"🔄 Саммаризация сообщений началась для пользователя {display_name}"
+                )
+            except Exception:
+                pass
 
         from handlers.summarizer import auto_summarize
         await auto_summarize(user_id, bot=bot)

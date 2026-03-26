@@ -24,6 +24,9 @@ async def test_cancels_previous():
     
     await timer.schedule_summarization(user_id=456, delay_seconds=600)
     
+    # Даем время на отмену задачи
+    await asyncio.sleep(0.01)
+    
     assert old_task.cancelled()
     print("✓ test_cancels_previous passed")
 
