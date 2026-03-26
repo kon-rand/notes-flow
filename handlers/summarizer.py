@@ -24,13 +24,16 @@ async def summarize_command(message: Message):
     if message.from_user is None:
         logger.warning("⚠️ message.from_user is None")
         return
-    try:
-        await message.answer("Запуск саммаризации...")
-        logger.info(f"✅ Ответ отправлен пользователю {message.from_user.id}")
-    except Exception as e:
-        logger.error(f"❌ Ошибка при отправке ответа: {e}")
-    logger.info(f"🚀 Запуск auto_summarize для пользователя {message.from_user.id}")
-    await auto_summarize(message.from_user.id, message.bot)
+    
+    user_name = message.from_user.full_name if message.from_user else None
+    
+    # Cancel any pending auto-summarization timer and run immediate summarization
+    from bot.timers.manager import summarizer_timer
+    await summarizer_timer.trigger_immediate_summarization(
+        user_id=message.from_user.id,
+        bot=message.bot,
+        user_name=user_name
+    )
 
 
 async def auto_summarize(user_id: int, bot: Optional[Bot] = None):

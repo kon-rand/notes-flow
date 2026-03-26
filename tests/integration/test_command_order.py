@@ -60,26 +60,27 @@ class TestCommandRegistrationOrder:
         
         Expected behavior:
         - /summarize should be handled by summarize_command
-        - summarize_command should call auto_summarize
-        - summarize_command should send "Запуск саммаризации..." response
+        - summarize_command should call trigger_immediate_summarization
+        - trigger_immediate_summarization should send notification and auto_summarize
         """
         # Create mock message for /summarize
         mock_message = MagicMock()
         mock_message.text = "/summarize"
         mock_message.from_user.id = 7853438988
+        mock_message.from_user.full_name = "Test User"
         mock_message.answer = AsyncMock()
         mock_message.bot = AsyncMock()
         
-        # Mock auto_summarize to avoid actual AI calls
-        with patch('handlers.summarizer.auto_summarize', new_callable=AsyncMock) as mock_auto_sum:
+        # Mock trigger_immediate_summarization to avoid actual timer logic
+        with patch('bot.timers.manager.SummarizeTimer.trigger_immediate_summarization', new_callable=AsyncMock) as mock_trigger:
             # Call the handler
             await summarize_command(mock_message)
             
-            # Verify auto_summarize was called (meaning summarize_command handled it)
-            mock_auto_sum.assert_called_once()
-            
-            # Verify message.answer was called (summarize_command sends "Запуск саммаризации...")
-            mock_message.answer.assert_called_once()
+            # Verify trigger_immediate_summarization was called (meaning summarize_command handled it)
+            mock_trigger.assert_called_once()
+            call_args = mock_trigger.call_args
+            assert call_args[1]['user_id'] == 7853438988
+            assert call_args[1]['user_name'] == "Test User"
 
     @pytest.mark.asyncio
     async def test_archive_date_handler_skips_summarize_command(self, clean_data_dir):
@@ -187,20 +188,23 @@ class TestCommandFunctionality:
 
     @pytest.mark.asyncio
     async def test_summarize_command_sends_response(self, clean_data_dir):
-        """Test /summarize sends 'Запуск саммаризации...' response"""
+        """Test /summarize triggers immediate summarization"""
         mock_message = MagicMock()
         mock_message.text = "/summarize"
         mock_message.from_user.id = 123456
+        mock_message.from_user.full_name = "Test User"
         mock_message.answer = AsyncMock()
         mock_message.bot = AsyncMock()
         
-        with patch('handlers.summarizer.auto_summarize', new_callable=AsyncMock):
+        with patch('bot.timers.manager.SummarizeTimer.trigger_immediate_summarization', new_callable=AsyncMock):
             await summarize_command(mock_message)
             
-            # Verify response was sent
-            mock_message.answer.assert_called_once()
-            call_args = mock_message.answer.call_args[0][0]
-            assert "Запуск саммаризации" in call_args
+            # Verify trigger_immediate_summarization was called
+            from bot.timers.manager import summarizer_timer
+            summarizer_timer.trigger_immediate_summarization.assert_called_once()
+            call_args = summarizer_timer.trigger_immediate_summarization.call_args
+            assert call_args[1]['user_id'] == 123456
+            assert call_args[1]['user_name'] == "Test User"
 
     @pytest.mark.asyncio
     async def test_archived_handler_shows_empty_response(self, clean_data_dir):

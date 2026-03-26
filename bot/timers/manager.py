@@ -24,7 +24,11 @@ class SummarizeTimer:
         if user_id in self.timers:
             old_task = self.timers[user_id]
             old_task.cancel()
-            await asyncio.sleep(0.01)
+            try:
+                await old_task
+            except asyncio.CancelledError:
+                pass
+            del self.timers[user_id]
 
         task = asyncio.create_task(
             self._wait_and_summarize(user_id, delay_seconds, user_name, bot)
@@ -36,8 +40,40 @@ class SummarizeTimer:
         if user_id in self.timers:
             task = self.timers[user_id]
             task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
             del self.timers[user_id]
-            await asyncio.sleep(0.01)
+
+    async def trigger_immediate_summarization(
+        self, 
+        user_id: int, 
+        bot: Bot, 
+        user_name: Optional[str] = None
+    ) -> None:
+        """Мгновенно запустить саммаризацию и сбросить все таймеры"""
+        display_name = user_name or str(user_id)
+        
+        try:
+            await bot.send_message(
+                user_id,
+                f"🔄 Ручная саммаризация началась для пользователя {display_name}"
+            )
+        except Exception:
+            pass
+        
+        if user_id in self.timers:
+            old_task = self.timers[user_id]
+            old_task.cancel()
+            try:
+                await old_task
+            except asyncio.CancelledError:
+                pass
+            del self.timers[user_id]
+        
+        from handlers.summarizer import auto_summarize
+        await auto_summarize(user_id, bot=bot)
 
     async def _wait_and_summarize(
         self, 

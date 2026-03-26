@@ -160,13 +160,16 @@ async def test_help_handler(mock_message):
 @pytest.mark.asyncio
 async def test_summarize_handler(mock_message):
     """Тест: /summarize запускает саммаризацию"""
-    with patch('handlers.summarizer.auto_summarize', new_callable=AsyncMock) as mock_auto_summarize:
+    with patch('bot.timers.manager.SummarizeTimer.trigger_immediate_summarization', new_callable=AsyncMock) as mock_trigger:
         mock_message.bot = MagicMock()
+        mock_message.from_user.full_name = "Test User"
         
         await summarize_command(mock_message)
         
-        mock_auto_summarize.assert_called_once_with(mock_message.from_user.id, mock_message.bot)
-        mock_message.answer.assert_called()
+        mock_trigger.assert_called_once()
+        call_args = mock_trigger.call_args
+        assert call_args[1]['user_id'] == mock_message.from_user.id
+        assert call_args[1]['user_name'] == "Test User"
 
 
 @pytest.mark.asyncio
