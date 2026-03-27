@@ -1,0 +1,25 @@
+{
+  "active_plan": "/home/kuzya/projects/notes-flow/.sisyphus/plans/backup-restore.md",
+  "started_at": "2026-03-27T15:37:53.579Z",
+  "session_ids": [
+    "ses_2d02df6dfffeATpdTreGPaMnTy",
+    "ses_2d00d8aa9ffevxgozi12We28Wn",
+    "ses_2d0092c01ffe3KNa7DONaW8lUw",
+    "ses_2d00268d7ffeXFrDWZzgWZ5Cxx",
+    "ses_2d000cc94ffeV5C4tt55FGPL4N",
+    "ses_2cfffb684ffe8xsafhKjzZuFUZ",
+    "ses_2cffd74d1ffeBmqnmpLSRjSL9o",
+    "ses_2cffc4fddffefebY7YpdP7Xkgs",
+    "ses_2cffb1d58ffedatBrJfkKAHR12",
+    "ses_2cff89158ffejtD5E4CLIayCuL",
+    "ses_2cff75cc3ffe2VLgA0digpIbk3",
+    "ses_2cff564cfffe4VudCrwJsD3VHk",
+    "ses_2cff1967cffeG0z1dvHQY4IhPI",
+    "ses_2cfe6ac2dffelg4gyKQvKEVSiv",
+    "ses_2cfddefb5ffeN0JmEJAnbMreBk",
+    "ses_2cfdc4916ffer7erXhZxcpEIHq",
+    "ses_2cfdbbd5fffeg4I9D6CF9PkQxV"
+  ],
+  "plan_name": "backup-restore",
+  "agent": "atlas"
+}

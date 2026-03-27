@@ -1,8 +1,14 @@
+import io
+import json
+import shutil
+import tempfile
 import yaml  # type: ignore[import-untyped]
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
+from bot.config.user_settings import SETTINGS_FILE
 from bot.db.models import InboxMessage, Task, Note
 
 
@@ -150,6 +156,190 @@ class FileManager:
         backup_path = self._get_user_dir(user_id) / f"inbox_backup_{timestamp}.md"
         backup_path.write_text(inbox_path.read_text(encoding="utf-8"), encoding="utf-8")
         return str(backup_path)
+
+    def create_backup(self, user_id: int) -> Optional[io.BytesIO]:
+        """
+        Create a ZIP backup of all user data.
+        
+        Collects: inbox.md, tasks.md, notes.md, archive/*, inbox_backup/*
+        Returns: BytesIO object containing ZIP data, or None if no data found
+        
+        Must NOT include: user_settings.json (global file)
+        """
+        user_dir = self.data_dir / str(user_id)
+        
+        if not user_dir.exists():
+            return None
+        
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            files_to_include = [
+                "inbox.md",
+                "tasks.md",
+                "notes.md",
+            ]
+            
+            for filename in files_to_include:
+                file_path = user_dir / filename
+                if file_path.exists():
+                    arcname = filename
+                    zip_file.write(file_path, arcname)
+            
+            archive_dir = user_dir / "archive"
+            if archive_dir.exists() and archive_dir.is_dir():
+                for file_path in archive_dir.glob("*"):
+                    if file_path.is_file():
+                        arcname = f"archive/{file_path.name}"
+                        zip_file.write(file_path, arcname)
+            
+            inbox_backup_dir = user_dir / "inbox_backup"
+            if inbox_backup_dir.exists() and inbox_backup_dir.is_dir():
+                for file_path in inbox_backup_dir.glob("*"):
+                    if file_path.is_file():
+                        arcname = f"inbox_backup/{file_path.name}"
+                        zip_file.write(file_path, arcname)
+            
+            if zip_file.namelist():
+                zip_buffer.seek(0)
+                return zip_buffer
+            else:
+                return None
+
+    def restore_from_backup(self, user_id: int, zip_path: str) -> dict:
+        """
+        Restore user data from a ZIP backup file.
+        
+        Args:
+            user_id: The ID of the user to restore data for.
+            zip_path: Path to the ZIP backup file.
+            
+        Returns:
+            Dict with success status and either extracted files info or error message.
+            On success: {'success': True, 'files_restored': [...], 'message': '...'}
+            On failure: {'success': False, 'error': '...'}
+            
+        Raises:
+            ValueError: If zip_path is invalid or empty.
+            FileNotFoundError: If ZIP file does not exist.
+            zipfile.BadZipFile: If file is not a valid ZIP archive.
+        """
+        zip_file = Path(zip_path)
+        
+        if not zip_file.exists():
+            return {
+                'success': False,
+                'error': f'Backup file not found: {zip_path}'
+            }
+        
+        if not zip_file.is_file():
+            return {
+                'success': False,
+                'error': f'Path is not a file: {zip_path}'
+            }
+        
+        try:
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                file_list = zip_ref.namelist()
+                if not file_list:
+                    return {
+                        'success': False,
+                        'error': 'Backup file is empty'
+                    }
+        except zipfile.BadZipFile:
+            return {
+                'success': False,
+                'error': f'Invalid ZIP file: {zip_path}'
+            }
+        
+        temp_dir = None
+        pre_restore_backup = None
+        
+        try:
+            temp_dir = Path(tempfile.mkdtemp(prefix='restore_'))
+            
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+                
+                files_extracted = len(zip_ref.namelist())
+            
+            required_files = ['inbox.md', 'tasks.md', 'notes.md']
+            missing_files = [f for f in required_files if not (temp_dir / f).exists()]
+            
+            if missing_files:
+                return {
+                    'success': False,
+                    'error': f'Missing required files in backup: {", ".join(missing_files)}'
+                }
+            
+            user_dir = self._get_user_dir(user_id)
+            
+            settings_path = Path(str(SETTINGS_FILE))
+            if settings_path.exists():
+                pre_restore_backup = Path('data') / f'user_settings_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+                shutil.copy2(settings_path, pre_restore_backup)
+            
+            for filename in ['inbox.md', 'tasks.md', 'notes.md']:
+                src = temp_dir / filename
+                dst = user_dir / filename
+                shutil.copy2(src, dst)
+            
+            archive_dir = temp_dir / 'archive'
+            if archive_dir.exists() and archive_dir.is_dir():
+                target_archive_dir = user_dir / 'archive'
+                target_archive_dir.mkdir(parents=True, exist_ok=True)
+                for file_path in archive_dir.glob('*'):
+                    if file_path.is_file():
+                        shutil.copy2(file_path, target_archive_dir / file_path.name)
+            
+            inbox_backup_dir = temp_dir / 'inbox_backup'
+            if inbox_backup_dir.exists() and inbox_backup_dir.is_dir():
+                target_inbox_backup_dir = user_dir / 'inbox_backup'
+                target_inbox_backup_dir.mkdir(parents=True, exist_ok=True)
+                for file_path in inbox_backup_dir.glob('*'):
+                    if file_path.is_file():
+                        shutil.copy2(file_path, target_inbox_backup_dir / file_path.name)
+            
+            user_settings_file = temp_dir / 'user_settings.json'
+            if user_settings_file.exists():
+                try:
+                    with open(user_settings_file, 'r', encoding='utf-8') as f:
+                        settings_data = json.load(f)
+                    
+                    if isinstance(settings_data, dict) and str(user_id) in settings_data:
+                        settings = settings_data[str(user_id)]
+                        if isinstance(settings, dict) and 'delay' in settings:
+                            delay = settings['delay']
+                            if isinstance(delay, int) and delay > 0:
+                                from bot.config.user_settings import user_settings
+                                user_settings.set_delay(user_id, delay)
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    pass
+            
+            return {
+                'success': True,
+                'files_restored': [
+                    'inbox.md',
+                    'tasks.md',
+                    'notes.md',
+                ] + (['archive/*'] if archive_dir.exists() else []) + (['inbox_backup/*'] if inbox_backup_dir.exists() else []),
+                'message': f'Successfully restored {files_extracted} files from backup',
+                'pre_restore_backup': str(pre_restore_backup) if pre_restore_backup else None
+            }
+            
+        except zipfile.BadZipFile:
+            return {
+                'success': False,
+                'error': f'Invalid ZIP file: {zip_file}'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Error during restore: {str(e)}'
+            }
+        finally:
+            if temp_dir and temp_dir.exists():
+                shutil.rmtree(temp_dir)
 
     def append_task(self, user_id: int, task: Task) -> None:
         items = self._load_all_items(user_id, "tasks")

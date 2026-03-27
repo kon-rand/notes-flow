@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, InputFile
 from aiogram.filters import Command
 import os
 from datetime import datetime
@@ -413,3 +413,30 @@ async def archive_handler(message: Message):
     archived_tasks = file_manager.archive_completed_tasks(user_id, today)
     
     await message.answer(f"✅ Архивировано задач за {today.strftime('%Y-%m-%d')}: {len(archived_tasks)}")
+
+
+@router.message(Command("backup"))
+async def backup_handler(message: Message):
+    """Создать резервную копию данных"""
+    if message.from_user is None:
+        return
+    
+    user_id = message.from_user.id
+    
+    try:
+        file_manager = FileManager()
+        backup_file = file_manager.create_backup(user_id)
+        
+        if backup_file is None:
+            await message.answer("Нет данных для бэкапа")
+            return
+        
+        await message.answer_document(
+            document=InputFile(backup_file, filename="backup.zip")
+        )
+        
+        logger.info(f"Backup created for user {user_id}")
+        
+    except Exception as e:
+        logger.error(f"Error creating backup for user {user_id}: {e}")
+        await message.answer(f"❌ Ошибка при создании бэкапа: {str(e)}")

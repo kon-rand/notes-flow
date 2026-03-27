@@ -1,0 +1,38 @@
+Task 1: Add backup/restore commands to bot main.py
+===================================================
+
+QA Scenario: Verify commands are registered
+
+Execution Date: 2026-03-27
+
+Test Results:
+-------------
+✓ Syntax check passed (python3 -m py_compile bot/main.py)
+✓ Commands successfully defined with BotCommand
+
+Registered Commands:
+--------------------
+['start', 'help', 'summarize', 'settings', 'inbox', 'tasks', 'notes', 
+ 'clear', 'archived', 'archive', 'backup', 'restore']
+
+Verification:
+-------------
+✓ 'backup' command found in list
+✓ 'restore' command found in list
+
+BotCommand Definitions Added:
+-----------------------------
+BotCommand(command="backup", description="создать резервную копию данных")
+BotCommand(command="restore", description="восстановить данные из резервной копии")
+
+File Modified:
+--------------
+bot/main.py (lines 35-36)
+
+Acceptance Criteria:
+--------------------
+✓ bot/main.py contains backup and restore BotCommand definitions
+✓ Commands registered in bot command list
+✓ No syntax errors in bot/main.py
+
+Status: PASSED

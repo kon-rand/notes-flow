@@ -32,6 +32,8 @@ async def main():
         BotCommand(command="clear", description="очистка инбокса"),
         BotCommand(command="archived", description="просмотр архивов"),
         BotCommand(command="archive", description="архивация задач"),
+        BotCommand(command="backup", description="создать резервную копию данных"),
+        BotCommand(command="restore", description="восстановить данные из резервной копии"),
     ]
     await bot.set_my_commands(commands)
 

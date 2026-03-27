@@ -1,9 +1,11 @@
 from typing import Optional, Tuple
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.types import Message
 from aiogram.types.message_origin_user import MessageOriginUser
 from aiogram.types.message_origin_hidden_user import MessageOriginHiddenUser
 from aiogram.types.message_origin_chat import MessageOriginChat
+import os
+import time
 
 from bot.db.file_manager import FileManager
 from bot.db.models import InboxMessage
@@ -77,3 +79,37 @@ async def message_handler(message: Message) -> None:
         user_name=user_name,
         bot=message.bot
     )
+
+
+@router.message(F.document)
+async def restore_document_handler(message: Message):
+    """Обработка загрузки ZIP файла для восстановления"""
+    if message.from_user is None:
+        return
+    
+    user_id = message.from_user.id
+    
+    # Проверяем, что это ZIP файл
+    if not message.document.file_name.endswith('.zip'):
+        await message.answer("Пожалуйста, загрузите ZIP-файл")
+        return
+    
+    try:
+        bot = message.bot
+        file = await bot.get_file(message.document.file_id)
+        file_path = f"/tmp/restore_{user_id}_{int(time.time())}.zip"
+        await bot.download_file(file.file_path, file_path)
+        
+        file_manager = FileManager()
+        result = file_manager.restore_from_backup(user_id, file_path)
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        if result['success']:
+            await message.answer(f"✅ {result['message']}")
+        else:
+            await message.answer(f"❌ {result.get('error', 'Ошибка при восстановлении')}")
+        
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
