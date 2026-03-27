@@ -1,9 +1,10 @@
 import asyncio
 import logging
 from aiogram import Router, F
-from aiogram.types import Message, InputFile
+from aiogram.types import Message, FSInputFile
 from aiogram.filters import Command
 import os
+import tempfile
 from datetime import datetime
 
 from bot.timers.manager import SummarizeTimer, summarizer_timer
@@ -414,10 +415,8 @@ async def archive_handler(message: Message):
     
     await message.answer(f"✅ Архивировано задач за {today.strftime('%Y-%m-%d')}: {len(archived_tasks)}")
 
-
 @router.message(Command("backup"))
 async def backup_handler(message: Message):
-    """Создать резервную копию данных"""
     if message.from_user is None:
         return
     
@@ -431,9 +430,16 @@ async def backup_handler(message: Message):
             await message.answer("Нет данных для бэкапа")
             return
         
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+        temp_file.write(backup_file.getvalue())
+        temp_file.close()
+        
         await message.answer_document(
-            document=InputFile(backup_file, filename="backup.zip")
+            document=FSInputFile(temp_file.name),
+            filename="backup.zip"
         )
+        
+        os.unlink(temp_file.name)
         
         logger.info(f"Backup created for user {user_id}")
         

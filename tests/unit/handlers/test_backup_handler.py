@@ -19,16 +19,20 @@ def mock_message():
 async def test_backup_handler_with_data(mock_message):
     """Test backup handler with user data"""
     with patch('handlers.commands.FileManager') as MockFM:
-        with patch('handlers.commands.InputFile') as MockInputFile:
+        with patch('handlers.commands.tempfile') as MockTempfile:
             fm_instance = MagicMock()
             backup_file = io.BytesIO(b"zip_data")
             fm_instance.create_backup.return_value = backup_file
             MockFM.return_value = fm_instance
             
+            temp_file_mock = MagicMock()
+            temp_file_mock.name = "/tmp/test.zip"
+            MockTempfile.NamedTemporaryFile.return_value.__enter__.return_value = temp_file_mock
+            MockTempfile.NamedTemporaryFile.return_value.__exit__ = MagicMock()
+            
             await backup_handler(mock_message)
             
             mock_message.answer_document.assert_called_once()
-            MockInputFile.assert_called_once()
 
 
 @pytest.mark.asyncio

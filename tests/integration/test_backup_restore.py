@@ -363,10 +363,11 @@ class TestBackupRestoreCommandIntegration:
         mock_bot = AsyncMock()
         mock_message.bot = mock_bot
         
-        with patch('handlers.commands.InputFile') as MockInputFile:
-            mock_input_file = MagicMock()
-            mock_input_file.read = MagicMock(return_value=b"fake backup data")
-            MockInputFile.return_value = mock_input_file
+        with patch('handlers.commands.tempfile') as MockTempfile:
+            temp_file_mock = MagicMock()
+            temp_file_mock.name = "/tmp/test_backup.zip"
+            MockTempfile.NamedTemporaryFile.return_value.__enter__.return_value = temp_file_mock
+            MockTempfile.NamedTemporaryFile.return_value.__exit__ = MagicMock()
             
             await backup_handler(mock_message)
         
