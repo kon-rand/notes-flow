@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 
 from bot.config import settings
-from handlers.commands import router as commands_router
+from handlers.commands import router as commands_router, archive_router
 from handlers.messages import router as messages_router
 from handlers.summarizer import router as summarizer_router
 from bot.healthcheck import healthcheck as healthcheck_func, ping as ping_func
@@ -50,6 +50,7 @@ async def run_bot():
     dp.include_router(commands_router)
     dp.include_router(messages_router)
     dp.include_router(summarizer_router)
+    dp.include_router(archive_router)
 
     logging.info("Starting bot...")
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
