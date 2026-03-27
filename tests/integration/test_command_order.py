@@ -142,7 +142,8 @@ class TestCommandRegistrationOrder:
         
         expected_commands = [
             "start", "help", "summarize", "settings", "inbox",
-            "tasks", "notes", "clear", "archived", "archive"
+            "tasks", "notes", "clear", "archived", "archive",
+            "backup", "restore"
         ]
         
         assert set(bot_commands) == set(expected_commands), \
