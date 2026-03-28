@@ -11,13 +11,10 @@ from bot.timers.manager import SummarizeTimer, summarizer_timer
 from bot.db.file_manager import FileManager
 from bot.config import settings
 from bot.config.user_settings import user_settings
-from bot.scheduler.backup_scheduler import BackupScheduler
 
 logger = logging.getLogger(__name__)
 
 router = Router()
-backup_scheduler: BackupScheduler | None = None
-bot_instance: Bot | None = None
 
 
 @router.message(Command("start"))
@@ -417,12 +414,6 @@ async def archive_handler(message: Message):
     archived_tasks = file_manager.archive_completed_tasks(user_id, today)
     
     await message.answer(f"✅ Архивировано задач за {today.strftime('%Y-%m-%d')}: {len(archived_tasks)}")
-    
-    # Schedule backup after archive
-    if backup_scheduler:
-        await backup_scheduler.schedule_backup(user_id)
-    else:
-        logger.warning("Backup scheduler not initialized")
 
 @router.message(Command("backup"))
 async def backup_handler(message: Message):

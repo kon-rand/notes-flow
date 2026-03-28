@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import signal
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
@@ -9,8 +10,10 @@ from handlers.commands import router as commands_router, archive_router
 from handlers.messages import router as messages_router
 from handlers.summarizer import router as summarizer_router
 from bot.healthcheck import healthcheck as healthcheck_func, ping as ping_func
-from bot.scheduler.backup_scheduler import BackupScheduler
 from fastapi.responses import JSONResponse
+
+# Import nightly scheduler
+from bot.scheduler.nightly_tasks import scheduler, start_scheduler, shutdown_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +36,6 @@ async def run_bot():
     """Запуск Telegram бота"""
     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
     dp = Dispatcher()
-
-    # Initialize backup scheduler
-    global backup_scheduler
-    backup_scheduler = BackupScheduler(bot)
-    logging.info("Backup scheduler initialized")
 
     commands = [
         BotCommand(command="start", description="показать статистику"),
@@ -85,6 +83,18 @@ async def main():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     logging.info("Starting Notes Flow application...")
+    
+    # Start nightly scheduler
+    start_scheduler()
+    
+    # Setup graceful shutdown
+    def signal_handler(sig, frame):
+        logging.info("Shutting down...")
+        shutdown_scheduler()
+        exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     
     bot_task = asyncio.create_task(run_bot())
     server_task = asyncio.create_task(run_server())

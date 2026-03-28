@@ -122,17 +122,7 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup
             logger.info(f"🗑️ Очистка инбокса выполнена")
         else:
             logger.warning(f"⚠️ Ничего не создано, инбокс не очищается")
-        
-        # Schedule backup after successful auto-summarization
-        if trigger_backup:
-            try:
-                from bot.scheduler.backup_scheduler import backup_scheduler
-                if backup_scheduler:
-                    logger.info(f"📦 Планирование бэкапа после саммаризации для пользователя {user_id}")
-                    await backup_scheduler.schedule_backup(user_id)
-            except Exception as e:
-                logger.warning(f"Failed to schedule backup: {e}")
-        
+     
         if bot:
             report_lines = [
                 "✅ Саммаризация завершена",
