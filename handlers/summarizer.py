@@ -32,11 +32,12 @@ async def summarize_command(message: Message):
     await summarizer_timer.trigger_immediate_summarization(
         user_id=message.from_user.id,
         bot=message.bot,
-        user_name=user_name
+        user_name=user_name,
+        trigger_backup=False  # Manual summarization does NOT trigger backup
     )
 
 
-async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
+async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup: bool = True):
     """Автоматическая саммаризация сообщений пользователя"""
     logger.info(f"📥 auto_summarize запущен для user_id={user_id}")
     file_manager = FileManager()
@@ -121,6 +122,16 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None):
             logger.info(f"🗑️ Очистка инбокса выполнена")
         else:
             logger.warning(f"⚠️ Ничего не создано, инбокс не очищается")
+        
+        # Schedule backup after successful auto-summarization
+        if trigger_backup:
+            try:
+                from bot.scheduler.backup_scheduler import backup_scheduler
+                if backup_scheduler:
+                    logger.info(f"📦 Планирование бэкапа после саммаризации для пользователя {user_id}")
+                    await backup_scheduler.schedule_backup(user_id)
+            except Exception as e:
+                logger.warning(f"Failed to schedule backup: {e}")
         
         if bot:
             report_lines = [

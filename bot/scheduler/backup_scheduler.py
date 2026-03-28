@@ -72,3 +72,8 @@ class BackupScheduler:
         except Exception as e:
             logger.error(f"Error creating backup for user {user_id}: {e}")
             return None
+
+
+# Module-level instance for testing
+backup_scheduler: BackupScheduler | None = None
+

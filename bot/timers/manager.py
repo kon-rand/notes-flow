@@ -44,7 +44,8 @@ class SummarizeTimer:
         self, 
         user_id: int, 
         bot: Bot, 
-        user_name: Optional[str] = None
+        user_name: Optional[str] = None,
+        trigger_backup: bool = True
     ) -> None:
         """Мгновенно запустить саммаризацию и сбросить все таймеры"""
         display_name = user_name or str(user_id)
@@ -64,14 +65,15 @@ class SummarizeTimer:
             del self.timers[user_id]
         
         from handlers.summarizer import auto_summarize
-        await auto_summarize(user_id, bot=bot)
+        await auto_summarize(user_id, bot=bot, trigger_backup=trigger_backup)
 
     async def _wait_and_summarize(
         self, 
         user_id: int, 
         delay: int, 
         user_name: Optional[str] = None,
-        bot: Optional[Bot] = None
+        bot: Optional[Bot] = None,
+        trigger_backup: bool = True
     ) -> None:
         """Асинхронный таймер с задержкой"""
         await asyncio.sleep(delay)
@@ -88,7 +90,7 @@ class SummarizeTimer:
                 pass
 
         from handlers.summarizer import auto_summarize
-        await auto_summarize(user_id, bot=bot)
+        await auto_summarize(user_id, bot=bot, trigger_backup=trigger_backup)
 
 
 summarizer_timer = SummarizeTimer()
