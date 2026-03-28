@@ -108,7 +108,7 @@ async def test_trigger_immediate_summarization_cancels_pending_timer(timer, mock
         assert 123 not in timer.timers
         
         # Verify immediate summarization was triggered
-        mock_summarize.assert_called_once_with(123, bot=mock_bot)
+        mock_summarize.assert_called_once_with(123, bot=mock_bot, trigger_backup=True)
 
 
 @pytest.mark.asyncio
@@ -127,8 +127,8 @@ async def test_trigger_immediate_summarization_sends_notification(timer, mock_bo
         assert call_args[0][0] == 456  # user_id
         assert "Ручная саммаризация началась для пользователя Test User" in call_args[0][1]
         
-        # Verify auto_summarize was called after notification
-        mock_summarize.assert_called_once_with(456, bot=mock_bot)
+        # Verify immediate summarization was triggered with default trigger_backup=True
+        mock_summarize.assert_called_once_with(456, bot=mock_bot, trigger_backup=True)
 
 
 @pytest.mark.asyncio
