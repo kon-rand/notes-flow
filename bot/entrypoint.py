@@ -9,6 +9,7 @@ from handlers.commands import router as commands_router, archive_router
 from handlers.messages import router as messages_router
 from handlers.summarizer import router as summarizer_router
 from bot.healthcheck import healthcheck as healthcheck_func, ping as ping_func
+from bot.scheduler.backup_scheduler import BackupScheduler
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,11 @@ async def run_bot():
     """Запуск Telegram бота"""
     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
     dp = Dispatcher()
+
+    # Initialize backup scheduler
+    global backup_scheduler
+    backup_scheduler = BackupScheduler(bot)
+    logging.info("Backup scheduler initialized")
 
     commands = [
         BotCommand(command="start", description="показать статистику"),

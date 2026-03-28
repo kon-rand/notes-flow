@@ -672,3 +672,130 @@ content: Content {i}
             assert result['stats']['notes_count'] == 4
         finally:
             temp_zip.unlink()
+
+
+# ============================================================================
+# Tests for has_changes function (change detection for auto-backup)
+# ============================================================================
+
+import os
+from datetime import datetime, timedelta
+from utils.backup_validator import has_changes
+
+
+class TestHasChanges:
+    """Tests for has_changes function."""
+
+    def test_no_files(self):
+        """Test with no user files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = has_changes(999, datetime.now(), tmpdir)
+            assert result is False
+
+    def test_no_changes(self):
+        """Test when files are older than last backup."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_dir = Path(tmpdir) / "123"
+            user_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create inbox.md
+            inbox_file = user_dir / "inbox.md"
+            inbox_file.write_text("---\ntype: inbox\n---\n\n## msg_001\ntimestamp: 2026-03-28T10:00:00\nfrom_user: 123\nsender_id: 123\nsender_name: Test\ncontent: Test message\nchat_id: 456")
+            
+            # Set last backup to after file creation
+            last_backup = datetime.now()
+            
+            result = has_changes(123, last_backup, tmpdir)
+            assert result is False
+
+    def test_changes_detected(self):
+        """Test when files are newer than last backup."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_dir = Path(tmpdir) / "123"
+            user_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create inbox.md
+            inbox_file = user_dir / "inbox.md"
+            inbox_file.write_text("---\ntype: inbox\n---\n\n## msg_001\ntimestamp: 2026-03-28T10:00:00\nfrom_user: 123\nsender_id: 123\nsender_name: Test\ncontent: Test message\nchat_id: 456")
+            
+            # Set last backup to before file creation
+            last_backup = datetime.now() - timedelta(hours=1)
+            
+            result = has_changes(123, last_backup, tmpdir)
+            assert result is True
+
+    def test_changes_in_archive(self):
+        """Test when archive files are newer than last backup."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_dir = Path(tmpdir) / "123"
+            user_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create inbox.md
+            inbox_file = user_dir / "inbox.md"
+            inbox_file.write_text("---\ntype: inbox\n---\n\n## msg_001\ntimestamp: 2026-03-28T10:00:00\nfrom_user: 123\nsender_id: 123\nsender_name: Test\ncontent: Test message\nchat_id: 456")
+            
+            # Create archive directory with file
+            archive_dir = user_dir / "archive"
+            archive_dir.mkdir(parents=True, exist_ok=True)
+            archive_file = archive_dir / "2026-03-28.md"
+            archive_file.write_text("---\ntype: archived_tasks\n---\n\n## task_001\ntitle: Test task\ntags: [test]\nstatus: completed\ncreated_at: 2026-03-28T10:00:00\nsource_message_ids: [msg_001]\ncontent: Test content")
+            
+            # Set last backup to before archive creation
+            last_backup = datetime.now() - timedelta(hours=1)
+            
+            result = has_changes(123, last_backup, tmpdir)
+            assert result is True
+
+    def test_changes_in_inbox_backup(self):
+        """Test when inbox backup files are newer than last backup."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_dir = Path(tmpdir) / "123"
+            user_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create inbox.md
+            inbox_file = user_dir / "inbox.md"
+            inbox_file.write_text("---\ntype: inbox\n---\n\n## msg_001\ntimestamp: 2026-03-28T10:00:00\nfrom_user: 123\nsender_id: 123\nsender_name: Test\ncontent: Test message\nchat_id: 456")
+            
+            # Create inbox_backup directory with file
+            backup_dir = user_dir / "inbox_backup"
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            backup_file = backup_dir / "inbox_backup_20260328_100000.md"
+            backup_file.write_text("---\ntype: inbox\n---\n\n## msg_001\ntimestamp: 2026-03-28T10:00:00\nfrom_user: 123\nsender_id: 123\nsender_name: Test\ncontent: Test message\nchat_id: 456")
+            
+            # Set last backup to before backup creation
+            last_backup = datetime.now() - timedelta(hours=1)
+            
+            result = has_changes(123, last_backup, tmpdir)
+            assert result is True
+
+    def test_changes_in_tasks(self):
+        """Test when tasks.md is newer than last backup."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_dir = Path(tmpdir) / "123"
+            user_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create tasks.md
+            tasks_file = user_dir / "tasks.md"
+            tasks_file.write_text("---\ntype: task\n---\n\n## task_001\ntitle: Test task\ntags: [test]\nstatus: pending\ncreated_at: 2026-03-28T10:00:00\nsource_message_ids: [msg_001]\ncontent: Test content")
+            
+            # Set last backup to before file creation
+            last_backup = datetime.now() - timedelta(hours=1)
+            
+            result = has_changes(123, last_backup, tmpdir)
+            assert result is True
+
+    def test_changes_in_notes(self):
+        """Test when notes.md is newer than last backup."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_dir = Path(tmpdir) / "123"
+            user_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create notes.md
+            notes_file = user_dir / "notes.md"
+            notes_file.write_text("---\ntype: note\n---\n\n## note_001\ntitle: Test note\ntags: [test]\ncreated_at: 2026-03-28T10:00:00\nsource_message_ids: [msg_001]\ncontent: Test content")
+            
+            # Set last backup to before file creation
+            last_backup = datetime.now() - timedelta(hours=1)
+            
+            result = has_changes(123, last_backup, tmpdir)
+            assert result is True

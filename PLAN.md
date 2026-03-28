@@ -263,6 +263,7 @@ httpx>=0.25.0
 | 23 | TICKET-023.md | ✅ completed | Исправить команду /settings (пер-пользовательские настройки, поддержка /settings <minutes>) |
 | 24 | TICKET-024.md | ✅ completed | Добавить уведомления о начале и результате саммаризации |
 | 25 | TICKET-025.md | ✅ completed | Исправить логику запуска автосаммаризации |
+| 26 | TICKET-026.md | ⏳ pending - требует проработки | Автоматические ежедневные бэкапы после архивации |
 
 **Статусы**: ⏳ pending, ✅ completed, 🚧 in_progress
 
@@ -292,6 +293,7 @@ httpx>=0.25.0
 | 20 | Исправление команды /settings | handlers/commands.py - поддержка /settings <minutes>, пер-пользовательские настройки | ✅ |
 | 21 | Уведомления о саммаризации | handlers/summarizer.py, bot/timers/manager.py - уведомления о начале и результате | ✅ |
 | 22 | Исправление автосаммаризации | bot/timers/manager.py, handlers/summarizer.py - ручная саммаризация отменяет автосаммаризацию, запуск один раз на батч | ✅ |
+| 23 | Автоматические ежедневные бэкапы | bot/db/backup_state.py, utils/backup_validator.py, bot/scheduler/backup_scheduler.py, handlers/commands.py | 🟡 |
 
 ---
 

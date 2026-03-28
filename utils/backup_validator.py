@@ -383,3 +383,39 @@ class BackupValidator:
             result['missing_files'] = missing_files
         
         return result
+
+import logging
+logger = logging.getLogger(__name__)
+
+def has_changes(user_id: int, last_backup_timestamp: datetime, data_dir: str = "data") -> bool:
+    user_dir = Path(data_dir) / str(user_id)
+    if not user_dir.exists():
+        logger.warning(f"User data directory not found: {user_dir}")
+        return False
+    
+    files_to_check = _get_files_to_check(user_dir)
+    for file_path in files_to_check:
+        try:
+            if file_path.exists() and file_path.is_file():
+                mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+                if mtime > last_backup_timestamp:
+                    logger.debug(f"File changed: {file_path.name} (modified: {mtime.isoformat()}, last_backup: {last_backup_timestamp.isoformat()})")
+                    return True
+        except OSError as e:
+            logger.warning(f"Failed to stat file {file_path}: {e}")
+    return False
+
+
+def _get_files_to_check(user_dir: Path) -> list[Path]:
+    files = []
+    for filename in ['inbox.md', 'tasks.md', 'notes.md']:
+        files.append(user_dir / filename)
+    archive_dir = user_dir / 'archive'
+    if archive_dir.exists() and archive_dir.is_dir():
+        for file_path in archive_dir.glob('*.md'):
+            files.append(file_path)
+    inbox_backup_dir = user_dir / 'inbox_backup'
+    if inbox_backup_dir.exists() and inbox_backup_dir.is_dir():
+        for file_path in inbox_backup_dir.glob('*.md'):
+            files.append(file_path)
+    return files
