@@ -1,15 +1,31 @@
 from typing import Optional, Tuple
-from aiogram import F, Router
-from aiogram.types import Message
+from aiogram import F, Router, Bot, types
+from aiogram.types import Message, CallbackQuery
 from aiogram.types.message_origin_user import MessageOriginUser
 from aiogram.types.message_origin_hidden_user import MessageOriginHiddenUser
 from aiogram.types.message_origin_chat import MessageOriginChat
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 import os
 import time
+import shutil
 
 from bot.db.file_manager import FileManager
 from bot.db.models import InboxMessage
 from bot.timers.manager import summarizer_timer
+
+
+router = Router()
+file_manager = FileManager()
+
+
+class RestoreState(StatesGroup):
+    waiting_for_confirmation = State()
+
+
+router = Router()
+file_manager = FileManager()
 
 
 router = Router()
@@ -82,7 +98,7 @@ async def message_handler(message: Message) -> None:
 
 
 @router.message(F.document)
-async def restore_document_handler(message: Message):
+async def restore_document_handler(message: Message, state: FSMContext):
     """Обработка загрузки ZIP файла для восстановления"""
     if message.from_user is None:
         return
@@ -90,7 +106,7 @@ async def restore_document_handler(message: Message):
     user_id = message.from_user.id
     
     # Проверяем, что это ZIP файл
-    if not message.document.file_name.endswith('.zip'):
+    if not message.document.file_name or not message.document.file_name.endswith('.zip'):
         await message.answer("Пожалуйста, загрузите ZIP-файл")
         return
     
@@ -106,10 +122,84 @@ async def restore_document_handler(message: Message):
         if os.path.exists(file_path):
             os.remove(file_path)
         
-        if result['success']:
-            await message.answer(f"✅ {result['message']}")
-        else:
+        if not result['success']:
             await message.answer(f"❌ {result.get('error', 'Ошибка при восстановлении')}")
+            return
+        
+        # Check if there are missing files
+        missing_files = result.get('missing_files', [])
+        if missing_files:
+            # Show preview and ask for confirmation
+            builder = InlineKeyboardBuilder()
+            builder.button(text="✅ Да, восстановить", callback_data="restore_confirm_yes")
+            builder.button(text="❌ Нет, отмена", callback_data="restore_confirm_no")
+            
+            available = result.get('files_available', [])
+            missing_str = ", ".join(missing_files)
+            available_str = ", ".join(available)
+            
+            await message.answer(
+                f"📦 Предварительный просмотр бэкапа:\n\n"
+                f"В архиве найдено файлов: {len(result.get('files_restored', []))}\n\n"
+                f"Доступные файлы: {available_str}\n\n"
+                f"⚠️ Отсутствуют файлы: {missing_str}\n\n"
+                f"Вы уверены, что хотите продолжить восстановление?\n"
+                f"Отсутствующие файлы не будут восстановлены.",
+                reply_markup=builder.as_markup()
+            )
+            # Store temp_dir for later use using FSM
+            await state.update_data({'restore_temp_dir': result.get('temp_dir')})
+            await state.set_state(RestoreState.waiting_for_confirmation)
+            return
+        
+        # No missing files, proceed with restore
+        await message.answer(f"✅ {result['message']}")
         
     except Exception as e:
         await message.answer(f"❌ Ошибка: {str(e)}")
+
+
+@router.callback_query(F.data == "restore_confirm_yes")
+async def restore_confirm_yes(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка подтверждения восстановления"""
+    user_id = callback.from_user.id
+    data = await state.get_data()
+    temp_dir = data.get('restore_temp_dir')
+    
+    if not temp_dir:
+        await callback.answer("❌ Время ожидания истшло. Загрузите бэкап заново.", show_alert=True)
+        await state.clear()
+        return
+    
+    try:
+        # Re-run restore with actual restore logic
+        file_manager = FileManager()
+        result = file_manager.restore_from_backup(user_id, temp_dir)  # Pass temp_dir path
+        
+        if result['success']:
+            await callback.answer(f"✅ {result['message']}")
+        else:
+            await callback.answer(f"❌ {result.get('error', 'Ошибка при восстановлении')}", show_alert=True)
+        
+        await state.clear()
+        
+    except Exception as e:
+        await callback.answer(f"❌ Ошибка: {str(e)}", show_alert=True)
+        await state.clear()
+
+
+@router.callback_query(F.data == "restore_confirm_no")
+async def restore_confirm_no(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка отмены восстановления"""
+    data = await state.get_data()
+    temp_dir = data.get('restore_temp_dir')
+    
+    if temp_dir:
+        try:
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception:
+            pass
+    
+    await callback.answer("❌ Восстановление отменено")
+    await state.clear()

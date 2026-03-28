@@ -10,6 +10,7 @@ This module tests the create_backup() method including:
 
 import io
 import json
+import shutil
 import zipfile
 from pathlib import Path
 from datetime import datetime
@@ -686,9 +687,10 @@ class TestRestoreFromBackup:
         
         result = fm.restore_from_backup(sample_user_id, str(backup_dir))
         
-        assert result['success'] is False
-        assert 'error' in result
-        assert 'not a file' in result['error'].lower()
+        # When directory is passed directly (restore mode), it restores whatever exists
+        # No missing files check in restore mode
+        assert result['success'] is True
+        assert 'files_restored' in result
 
     def test_restore_from_backup_empty_zip(self, tmp_path, sample_user_id):
         fm = FileManager(str(tmp_path))
@@ -724,10 +726,16 @@ class TestRestoreFromBackup:
         
         result = fm.restore_from_backup(sample_user_id, str(backup_path))
         
-        assert result['success'] is False
-        assert 'error' in result
-        assert 'missing' in result['error'].lower()
-        assert 'tasks.md' in result['error'] or 'notes.md' in result['error']
+        # Now returns preview mode with missing files info
+        assert result['success'] is True
+        assert 'missing_files' in result
+        assert 'tasks.md' in result['missing_files']
+        assert 'notes.md' in result['missing_files']
+        assert 'temp_dir' in result
+        assert result['temp_dir'] is not None
+        
+        # Cleanup
+        shutil.rmtree(result['temp_dir'])
 
     def test_restore_from_backup_with_archive(self, tmp_path, sample_user_id):
         fm = FileManager(str(tmp_path))
@@ -786,6 +794,115 @@ class TestRestoreFromBackup:
         restored_backup = inbox_backup_dir / "inbox_backup_20260310_120000.md"
         assert restored_backup.exists()
         assert "Backup" in restored_backup.read_text()
+
+    def test_restore_from_backup_missing_files_preview_mode(self, tmp_path, sample_user_id):
+        """Test: restore with missing files returns preview mode with temp_dir"""
+        fm = FileManager(str(tmp_path))
+        
+        # Create backup with only inbox.md (missing tasks.md and notes.md)
+        backup_path = tmp_path / "incomplete.zip"
+        with zipfile.ZipFile(backup_path, 'w') as zf:
+            zf.writestr("inbox.md", "---\ntype: inbox\n---\n\n## msg_001\ncontent: Test")
+        
+        result = fm.restore_from_backup(sample_user_id, str(backup_path))
+        
+        assert result['success'] is True
+        assert 'missing_files' in result
+        assert 'inbox.md' not in result['missing_files']  # inbox.md exists
+        assert 'tasks.md' in result['missing_files']
+        assert 'notes.md' in result['missing_files']
+        assert 'temp_dir' in result
+        assert result['temp_dir'] is not None
+        
+        # temp_dir should exist
+        assert Path(result['temp_dir']).exists()
+        
+        # Cleanup
+        shutil.rmtree(result['temp_dir'])
+
+    def test_restore_from_backup_missing_files_restore_mode(self, tmp_path, sample_user_id):
+        """Test: restore mode copies only available files, skips missing ones"""
+        fm = FileManager(str(tmp_path))
+        
+        # Create backup with only inbox.md and tasks.md (missing notes.md)
+        backup_path = tmp_path / "partial.zip"
+        with zipfile.ZipFile(backup_path, 'w') as zf:
+            zf.writestr("inbox.md", "---\ntype: inbox\n---\n\n## msg_001\ncontent: Inbox")
+            zf.writestr("tasks.md", "---\ntype: tasks\n---\n\n## task_001\ntitle: Task")
+        
+        # First call - preview mode
+        result1 = fm.restore_from_backup(sample_user_id, str(backup_path))
+        assert result1['success'] is True
+        assert 'missing_files' in result1
+        assert 'notes.md' in result1['missing_files']
+        
+        temp_dir = result1['temp_dir']
+        
+        # Second call - restore mode (pass temp_dir directly)
+        result2 = fm.restore_from_backup(sample_user_id, str(temp_dir))
+        
+        # Should succeed and copy only available files
+        assert result2['success'] is True
+        # notes.md should not be in files_restored because it's not in the backup
+        assert 'notes.md' not in result2['files_restored']
+        assert 'inbox.md' in result2['files_restored']
+        assert 'tasks.md' in result2['files_restored']
+        
+        # Verify restored files exist
+        user_dir = tmp_path / str(sample_user_id)
+        assert (user_dir / "inbox.md").exists()
+        assert (user_dir / "tasks.md").exists()
+        # notes.md exists because it was created in previous test, but wasn't copied from backup
+        
+        # Cleanup
+        shutil.rmtree(temp_dir)
+
+    def test_restore_archive_files_cleaned_before_copy(self, tmp_path, sample_user_id):
+        """Test: old archive files are deleted before restoring new ones"""
+        fm = FileManager(str(tmp_path))
+        
+        # Create initial user data with archive
+        user_dir = tmp_path / str(sample_user_id)
+        user_dir.mkdir()
+        
+        (user_dir / "inbox.md").write_text("---\ntype: inbox\n---\n\n## msg_001\ncontent: Test")
+        (user_dir / "tasks.md").write_text("---\ntype: tasks\n---\n\n## task_001\nstatus: pending")
+        (user_dir / "notes.md").write_text("---\ntype: notes\n---\n\n## note_001\ntitle: Test")
+        
+        # Create old archive file
+        archive_dir = user_dir / "archive"
+        archive_dir.mkdir()
+        (archive_dir / "2026-03-01.md").write_text("---\ntype: archived_tasks\n---\n\n## old_task\nstatus: completed")
+        
+        # Create backup
+        backup = fm.create_backup(sample_user_id)
+        assert backup is not None
+        
+        # Create new backup with different archive file
+        backup_path = tmp_path / "backup1.zip"
+        backup_path.write_bytes(backup.getvalue())
+        
+        # First restore
+        result1 = fm.restore_from_backup(sample_user_id, str(backup_path))
+        assert result1['success'] is True
+        assert (archive_dir / "2026-03-01.md").exists()
+        
+        # Create new backup with different archive
+        (archive_dir / "2026-03-01.md").unlink()  # Remove old archive
+        (archive_dir / "2026-03-10.md").write_text("---\ntype: archived_tasks\n---\n\n## new_task\nstatus: pending")
+        
+        backup2 = fm.create_backup(sample_user_id)
+        backup_path2 = tmp_path / "backup2.zip"
+        backup_path2.write_bytes(backup2.getvalue())
+        
+        # Second restore - old archive should be cleaned
+        result2 = fm.restore_from_backup(sample_user_id, str(backup_path2))
+        assert result2['success'] is True
+        
+        # Verify old archive is gone, new archive exists
+        assert not (archive_dir / "2026-03-01.md").exists()
+        assert (archive_dir / "2026-03-10.md").exists()
+        assert "new_task" in (archive_dir / "2026-03-10.md").read_text()
 
 
 class TestRestoreRollback:

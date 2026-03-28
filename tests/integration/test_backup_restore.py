@@ -216,10 +216,16 @@ chat_id: -1001234567890
         
         result = fm.restore_from_backup(123456, incomplete_zip_path)
         
-        assert result['success'] is False
-        assert 'error' in result
-        assert 'missing' in result['error'].lower() or 'required' in result['error'].lower()
+        # Now returns preview mode with missing files info
+        assert result['success'] is True
+        assert 'missing_files' in result
+        assert 'tasks.md' in result['missing_files']
+        assert 'notes.md' in result['missing_files']
+        assert 'temp_dir' in result
+        assert result['temp_dir'] is not None
         
+        # Cleanup temp dir
+        shutil.rmtree(result['temp_dir'])
         os.remove(incomplete_zip_path)
     
     def test_backup_restore_preserves_archive_data(self, clean_data_dir, sample_user_data):
@@ -442,7 +448,11 @@ class TestBackupRestoreCommandIntegration:
         mock_bot.download_file = AsyncMock(side_effect=mock_download_file)
         mock_message.bot = mock_bot
         
-        await restore_document_handler(mock_message)
+        mock_state = AsyncMock()
+        mock_state.update_data = AsyncMock()
+        mock_state.set_state = AsyncMock()
+        
+        await restore_document_handler(mock_message, mock_state)
         
         mock_message.answer.assert_called_once()
         call_args = mock_message.answer.call_args
@@ -471,7 +481,11 @@ class TestBackupRestoreCommandIntegration:
         mock_bot = AsyncMock()
         mock_message.bot = mock_bot
         
-        await restore_document_handler(mock_message)
+        mock_state = AsyncMock()
+        mock_state.update_data = AsyncMock()
+        mock_state.set_state = AsyncMock()
+        
+        await restore_document_handler(mock_message, mock_state)
         
         mock_message.answer.assert_called_once()
         call_args = mock_message.answer.call_args
@@ -487,7 +501,11 @@ class TestBackupRestoreCommandIntegration:
         mock_message.from_user = None
         mock_message.document = None
         
-        await restore_document_handler(mock_message)
+        mock_state = AsyncMock()
+        mock_state.update_data = AsyncMock()
+        mock_state.set_state = AsyncMock()
+        
+        await restore_document_handler(mock_message, mock_state)
         
         mock_message.answer.assert_not_called()
     
@@ -516,7 +534,11 @@ class TestBackupRestoreCommandIntegration:
         with open("/tmp/invalid.zip", 'wb') as f:
             f.write(b"Not a valid ZIP")
         
-        await restore_document_handler(mock_message)
+        mock_state = AsyncMock()
+        mock_state.update_data = AsyncMock()
+        mock_state.set_state = AsyncMock()
+        
+        await restore_document_handler(mock_message, mock_state)
         
         mock_message.answer.assert_called_once()
         call_args = mock_message.answer.call_args

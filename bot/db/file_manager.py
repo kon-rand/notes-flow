@@ -206,17 +206,19 @@ class FileManager:
             else:
                 return None
 
-    def restore_from_backup(self, user_id: int, zip_path: str) -> dict:
+    def restore_from_backup(self, user_id: int, zip_path: str, skip_missing: bool = False) -> dict:
         """
         Restore user data from a ZIP backup file.
         
         Args:
             user_id: The ID of the user to restore data for.
-            zip_path: Path to the ZIP backup file.
+            zip_path: Path to the ZIP backup file OR path to already extracted temp directory.
+            skip_missing: If True, restore only available files (for preview mode).
+                         If False, raise error if required files are missing (for actual restore).
             
         Returns:
             Dict with success status and either extracted files info or error message.
-            On success: {'success': True, 'files_restored': [...], 'message': '...'}
+            On success: {'success': True, 'files_restored': [...], 'message': '...', 'pre_restore_backup': ...}
             On failure: {'success': False, 'error': '...'}
             
         Raises:
@@ -224,54 +226,74 @@ class FileManager:
             FileNotFoundError: If ZIP file does not exist.
             zipfile.BadZipFile: If file is not a valid ZIP archive.
         """
-        zip_file = Path(zip_path)
-        
-        if not zip_file.exists():
-            return {
-                'success': False,
-                'error': f'Backup file not found: {zip_path}'
-            }
-        
-        if not zip_file.is_file():
-            return {
-                'success': False,
-                'error': f'Path is not a file: {zip_path}'
-            }
-        
-        try:
-            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-                file_list = zip_ref.namelist()
-                if not file_list:
-                    return {
-                        'success': False,
-                        'error': 'Backup file is empty'
-                    }
-        except zipfile.BadZipFile:
-            return {
-                'success': False,
-                'error': f'Invalid ZIP file: {zip_path}'
-            }
-        
+        path = Path(zip_path)
         temp_dir = None
         pre_restore_backup = None
+        zip_file = None  # Initialize to avoid unbound error
+        was_preview_mode = False  # Track if this was a preview call
+        is_restore_mode = False  # Track if this is a restore call (not preview)
         
         try:
-            temp_dir = Path(tempfile.mkdtemp(prefix='restore_'))
-            
-            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
+            # Check if path is already an extracted directory (preview mode after confirmation)
+            if path.is_dir():
+                temp_dir = path
+                is_restore_mode = True  # This is a restore call after preview
+            else:
+                # Normal mode: path is a ZIP file
+                zip_file = path
                 
-                files_extracted = len(zip_ref.namelist())
+                if not zip_file.exists():
+                    return {
+                        'success': False,
+                        'error': f'Backup file not found: {zip_path}'
+                    }
+                
+                if not zip_file.is_file():
+                    return {
+                        'success': False,
+                        'error': f'Path is not a file: {zip_path}'
+                    }
+                
+                try:
+                    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                        file_list = zip_ref.namelist()
+                        if not file_list:
+                            return {
+                                'success': False,
+                                'error': 'Backup file is empty'
+                            }
+                except zipfile.BadZipFile:
+                    return {
+                        'success': False,
+                        'error': f'Invalid ZIP file: {zip_path}'
+                    }
+                
+                # Extract ZIP to temp directory
+                temp_dir = Path(tempfile.mkdtemp(prefix='restore_'))
+                with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+            
+            # Count files
+            files_extracted = len(list(temp_dir.glob('*'))) + (1 if (temp_dir / 'inbox_backup').exists() else 0)
             
             required_files = ['inbox.md', 'tasks.md', 'notes.md']
             missing_files = [f for f in required_files if not (temp_dir / f).exists()]
             
-            if missing_files:
+            if missing_files and not is_restore_mode:
+                # First call with missing files - preview mode
+                # Don't clean up temp_dir, keep it for actual restore after confirmation
+                was_preview_mode = True
                 return {
-                    'success': False,
-                    'error': f'Missing required files in backup: {", ".join(missing_files)}'
+                    'success': True,
+                    'files_restored': [],
+                    'message': f'Backup preview: {files_extracted} files found',
+                    'missing_files': missing_files,
+                    'files_available': [f for f in required_files if (temp_dir / f).exists()],
+                    'pre_restore_backup': None,
+                    'temp_dir': temp_dir,  # Keep temp dir for actual restore after confirmation
                 }
             
+            # Create backup of current state before restore
             user_dir = self._get_user_dir(user_id)
             
             settings_path = Path(str(SETTINGS_FILE))
@@ -279,15 +301,25 @@ class FileManager:
                 pre_restore_backup = Path('data') / f'user_settings_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
                 shutil.copy2(settings_path, pre_restore_backup)
             
+            # Copy files and track which ones were restored
+            files_restored = []
             for filename in ['inbox.md', 'tasks.md', 'notes.md']:
                 src = temp_dir / filename
                 dst = user_dir / filename
-                shutil.copy2(src, dst)
+                if src.exists():
+                    shutil.copy2(src, dst)
+                    files_restored.append(filename)
             
             archive_dir = temp_dir / 'archive'
             if archive_dir.exists() and archive_dir.is_dir():
                 target_archive_dir = user_dir / 'archive'
                 target_archive_dir.mkdir(parents=True, exist_ok=True)
+                # Clear old archive files first
+                if target_archive_dir.exists():
+                    for old_file in target_archive_dir.glob('*'):
+                        if old_file.is_file():
+                            old_file.unlink()
+                # Copy new archive files
                 for file_path in archive_dir.glob('*'):
                     if file_path.is_file():
                         shutil.copy2(file_path, target_archive_dir / file_path.name)
@@ -318,11 +350,7 @@ class FileManager:
             
             return {
                 'success': True,
-                'files_restored': [
-                    'inbox.md',
-                    'tasks.md',
-                    'notes.md',
-                ] + (['archive/*'] if archive_dir.exists() else []) + (['inbox_backup/*'] if inbox_backup_dir.exists() else []),
+                'files_restored': files_restored + (['archive/*'] if archive_dir.exists() else []) + (['inbox_backup/*'] if inbox_backup_dir.exists() else []),
                 'message': f'Successfully restored {files_extracted} files from backup',
                 'pre_restore_backup': str(pre_restore_backup) if pre_restore_backup else None
             }
@@ -338,7 +366,9 @@ class FileManager:
                 'error': f'Error during restore: {str(e)}'
             }
         finally:
-            if temp_dir and temp_dir.exists():
+            # Clean up temp dir only if it was created by this method AND not in preview mode
+            # In preview mode, temp_dir is kept for actual restore after confirmation
+            if temp_dir and temp_dir != path and temp_dir.exists() and not was_preview_mode:
                 shutil.rmtree(temp_dir)
 
     def append_task(self, user_id: int, task: Task) -> None:
