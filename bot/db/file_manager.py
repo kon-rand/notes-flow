@@ -715,6 +715,8 @@ class FileManager:
         items = self._load_all_items(user_id, "tasks")
         existing_ids = [id for id, _ in items]
         
+        # Если задача существует в active, обновляем её данными из archive
+        # (archive содержит полную версию задачи)
         if task_id in existing_ids:
             for i, (id, item_data) in enumerate(items):
                 if id == task_id:
@@ -730,6 +732,7 @@ class FileManager:
                     })
                     break
         else:
+            # Если задачи нет в active, добавляем новую
             item_data = {
                 "title": task.title,
                 "tags": task.tags,
