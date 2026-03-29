@@ -73,6 +73,7 @@ async def help_handler(message: Message):
 
 💡 Управление задачами:
 /done_XXX - отметить задачу как выполненную (XXX - номер задачи)
+/undone_XXX - вернуть задачу в невыполненное состояние (XXX - номер задачи)
 /del_XXX - удалить задачу (XXX - номер задачи)
 /archived - просмотр архивов
 /archive - архивация выполненных задач за сегодня
@@ -195,7 +196,7 @@ async def tasks_handler(message: Message):
         if task.status == "pending":
             response += f"   /done_{task_number}   /del_{task_number}\n"
         else:
-            response += f"   /del_{task_number}\n"
+            response += f"   /undone_{task_number}   /del_{task_number}\n"
         response += "\n"
     
     await message.answer(response)
@@ -297,6 +298,29 @@ async def delete_task_handler(message: Message):
         await message.answer(f"❌ Задача {task_number} не найдена")
 
 
+@router.message(F.text.startswith("/undone_"))
+async def undone_task_handler(message: Message):
+    """Вернуть задачу в невыполненное состояние"""
+    if message.from_user is None:
+        return
+    
+    task_number = message.text[8:]
+    if not task_number.isdigit():
+        await message.answer("❌ Неверный формат команды. Используйте: /undone_123")
+        return
+    
+    task_id = f"task_{task_number.zfill(3)}"
+    user_id = message.from_user.id
+    
+    file_manager = FileManager()
+    success = file_manager.restore_task_from_archive(user_id, task_id)
+    
+    if success:
+        await message.answer(f"✅ Задача {task_number} возвращена в невыполненное состояние")
+    else:
+        await message.answer(f"❌ Задача {task_number} не найдена")
+
+
 @router.message(Command("archived"))
 async def archived_handler(message: Message):
     """Показать список дат с архивом или задачи за дату"""
@@ -340,9 +364,11 @@ async def archived_handler(message: Message):
         
         response = f"✅ Задачи за {date_display}:\n\n"
         for task in tasks:
+            task_number = task.id.split("_")[1] if "_" in task.id else task.id
             tags = ", ".join(task.tags) if task.tags else ""
             response += f"📌 {task.title} [{tags}]\n"
-            response += f"   {task.content}\n\n"
+            response += f"   {task.content}\n"
+            response += f"   /undone_{task_number}\n\n"
         
         await message.answer(response)
         
@@ -361,6 +387,11 @@ async def archive_date_handler(message: Message):
     # Игнорируем команды, которые обрабатываются другими хендлерами
     if message.text in ["/summarize", "/start", "/help", "/settings", "/inbox", "/tasks", "/notes", "/clear", "/archive", "/archived"]:
         logger.info(f"   → Skipping command {message.text} (handled by other handler)")
+        return
+    
+    # Игнорируем команду undone (обрабатывается другим handler)
+    if message.text.startswith("/undone_"):
+        logger.info(f"   → Skipping /undone_ command (handled by undone_task_handler)")
         return
     
     date_input = message.text[1:]
@@ -384,7 +415,8 @@ async def archive_date_handler(message: Message):
         return
     
     date_display = f"{year}-{month}-{day}"
-    date_file = date_display
+    # Конвертируем дату в формат для поиска (дефисы вместо подчеркиваний)
+    date_file = date_display.replace("_", "-")
     
     file_manager = FileManager()
     tasks = file_manager.get_tasks_by_archive_date(message.from_user.id, date_file)
@@ -395,9 +427,11 @@ async def archive_date_handler(message: Message):
     
     response = f"✅ Задачи за {date_display}:\n\n"
     for task in tasks:
+        task_number = task.id.split("_")[1] if "_" in task.id else task.id
         tags = ", ".join(task.tags) if task.tags else ""
         response += f"📌 {task.title} [{tags}]\n"
-        response += f"   {task.content}\n\n"
+        response += f"   {task.content}\n"
+        response += f"   /undone_{task_number}\n\n"
     
     await message.answer(response)
 

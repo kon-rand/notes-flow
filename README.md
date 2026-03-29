@@ -145,6 +145,7 @@ curl http://localhost:8080/ping
 | `/clear inbox` | Очистка инбокса вручную |
 | `/backup` | Создать резервную копию всех данных |
 | `/restore` | Восстановить данные из резервной копии |
+| `/undone_XXX` | Вернуть задачу в невыполненное состояние (XXX - номер задачи) |
 
 **Примечание:** Старый формат `/settings delay <minutes>` также поддерживается для обратной совместимости.
 
@@ -336,7 +337,54 @@ docker-compose -f docker-compose.local.yml down
 
 **Примечание:** docker-compose.local.yml использует `network_mode: host` для доступа к API на `localhost:8080`.
 
+### ⚠️ Известная проблема: Docker Compose 'ContainerConfig' error
+
+При обновлении образа через `docker-compose up -d` может возникнуть ошибка:
+
+```
+KeyError: 'ContainerConfig'
+```
+
+**Причина**: Несовместимость версий docker-compose с обновлённым образом контейнера.
+
+**Решение** (правильный передеплой):
+
+```bash
+# 1. Полностью удалите старый контейнер и образ
+docker-compose -f docker-compose.local.yml down --rmi all
+
+# 2. Пересоберите образ без кэша (важно для применения изменений)
+docker-compose -f docker-compose.local.yml build --no-cache
+
+# 3. Запустите обновлённый контейнер
+docker-compose -f docker-compose.local.yml up -d
+```
+
+**Или один командой** (рекомендуется):
+
+```bash
+docker-compose -f docker-compose.local.yml down --rmi all && \
+docker-compose -f docker-compose.local.yml build --no-cache && \
+docker-compose -f docker-compose.local.yml up -d
+```
+
+**Важно**: Всегда используйте `--no-cache` при пересборке, чтобы изменения в коде были применены.
+
+# 2. Создайте новый контейнер
+docker-compose -f docker-compose.local.yml up -d
+```
+
+**Альтернативный способ** (если первый не работает):
+```bash
+# Удалите контейнер вручную
+docker rm -f notes-flow-local
+
+# Запустите заново
+docker-compose -f docker-compose.local.yml up -d
+```
+
 ### Облачный деплой
+
 
 1. Настройте переменные окружения:
 ```bash

@@ -15,6 +15,21 @@ from bot.db.models import InboxMessage, Task, Note
 class FileManager:
     def __init__(self, data_dir: str = "data"):
         self.data_dir = Path(data_dir)
+    
+    def get_all_user_ids(self) -> List[int]:
+        """Получить список всех user_id из директории data"""
+        if not self.data_dir.exists():
+            return []
+        
+        user_ids = []
+        for item in self.data_dir.iterdir():
+            if item.is_dir():
+                try:
+                    user_ids.append(int(item.name))
+                except ValueError:
+                    # Пропускаем файлы (например user_settings.json)
+                    continue
+        return user_ids
 
     def _get_user_dir(self, user_id: int) -> Path:
         user_dir = self.data_dir / str(user_id)
@@ -410,6 +425,36 @@ class FileManager:
                 continue
         return tasks
 
+    def find_task_in_tasks(self, user_id: int, task_id: str) -> Task | None:
+        """Найти задачу в активных задачах по ID
+        
+        Args:
+            user_id: ID пользователя
+            task_id: ID задачи (например, "task_001")
+            
+        Returns:
+            Task объект если найден, None если не найдена
+        """
+        items = self._load_all_items(user_id, "tasks")
+        for item_id, item_data in items:
+            if item_id == task_id:
+                try:
+                    task = Task(
+                        id=item_id,
+                        title=item_data.get("title", ""),
+                        tags=item_data.get("tags", []),
+                        status=item_data.get("status", "pending"),
+                        created_at=item_data.get("created_at"),
+                        completed_at=item_data.get("completed_at"),
+                        archived_at=item_data.get("archived_at"),
+                        source_message_ids=item_data.get("source_message_ids", []),
+                        content=item_data.get("content", ""),
+                    )
+                    return task
+                except Exception:
+                    return None
+        return None
+
     def update_task_status(self, user_id: int, task_id: str, status: str) -> bool:
         items = self._load_all_items(user_id, "tasks")
         for i, (id, item_data) in enumerate(items):
@@ -591,3 +636,115 @@ class FileManager:
                 continue
 
         return tasks
+
+    def find_task_in_archive(self, user_id: int, task_id: str) -> tuple[str, Task] | None:
+        """Найти задачу во всех архивах по ID
+        
+        Args:
+            user_id: ID пользователя
+            task_id: ID задачи (например, "task_001")
+            
+        Returns:
+            Кортеж (дата_архива, Task) если найден, None если не найдена
+        """
+        archive_dates = self.get_archive_dates(user_id)
+        for archive_date in archive_dates:
+            tasks = self.get_tasks_by_archive_date(user_id, archive_date)
+            for task in tasks:
+                if task.id == task_id:
+                    return (archive_date, task)
+        return None
+
+    def remove_task_from_archive(self, user_id: int, archive_date: str, task_id: str) -> bool:
+        """Удалить задачу из архива по дате и ID
+        
+        Args:
+            user_id: ID пользователя
+            archive_date: Дата архива (например, "2026-03-28")
+            task_id: ID задачи
+            
+        Returns:
+            True если задача удалена, False если не найдена
+        """
+        archive_dir = self._get_user_dir(user_id) / "archive"
+        archive_file = archive_dir / f"{archive_date}.md"
+        
+        data = self._read_file(archive_file)
+        if data is None:
+            return False
+        
+        items = data.get("items", [])
+        existing_ids = [id for id, _ in items]
+        
+        if task_id not in existing_ids:
+            return False
+        
+        items = [(id, data) for id, data in items if id != task_id]
+        
+        if len(items) == 0:
+            if archive_file.exists():
+                archive_file.unlink()
+            return True
+        
+        metadata = {"type": "archived_tasks", "date": archive_date}
+        self._write_file_with_metadata(archive_file, metadata, items)
+        
+        return True
+
+    def restore_task_from_archive(self, user_id: int, task_id: str) -> bool:
+        """Переместить задачу из архива обратно в активные задачи
+        
+        Args:
+            user_id: ID пользователя
+            task_id: ID задачи (например, "task_001")
+            
+        Returns:
+            True если задача найдена и перемещена, False если не найдена
+        """
+        archive_result = self.find_task_in_archive(user_id, task_id)
+        if archive_result is None:
+            return False
+        
+        archive_date, task = archive_result
+        
+        archive_date_str, task = archive_result
+        
+        task.status = "pending"
+        task.archived_at = None
+        
+        items = self._load_all_items(user_id, "tasks")
+        existing_ids = [id for id, _ in items]
+        
+        if task_id in existing_ids:
+            for i, (id, item_data) in enumerate(items):
+                if id == task_id:
+                    items[i] = (id, {
+                        "title": task.title,
+                        "tags": task.tags,
+                        "status": task.status,
+                        "created_at": task.created_at,
+                        "completed_at": task.completed_at,
+                        "archived_at": task.archived_at,
+                        "source_message_ids": task.source_message_ids,
+                        "content": task.content,
+                    })
+                    break
+        else:
+            item_data = {
+                "title": task.title,
+                "tags": task.tags,
+                "status": task.status,
+                "created_at": task.created_at,
+                "completed_at": task.completed_at,
+                "archived_at": task.archived_at,
+                "source_message_ids": task.source_message_ids,
+                "content": task.content,
+            }
+            items.append((task.id, item_data))
+        
+        tasks_path = self._get_user_dir(user_id) / "tasks.md"
+        self._write_file(tasks_path, "task", items)
+        
+        self.remove_task_from_archive(user_id, archive_date_str, task_id)
+        
+        return True
