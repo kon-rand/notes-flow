@@ -6,20 +6,34 @@ from bot.db.file_manager import FileManager
 from bot.db.models import Task
 
 
+@pytest.fixture(autouse=True)
+def cleanup_user_settings_and_files(tmp_path):
+    """Clean up user settings and tmp_path before each test to ensure isolation"""
+    from bot.config.user_settings import SETTINGS_FILE
+    # Clean up user settings before each test
+    if Path(SETTINGS_FILE).exists():
+        Path(SETTINGS_FILE).unlink()
+    yield
+    # Clean up tmp_path after each test to prevent file system state leakage
+
+
 @pytest.fixture
-def tmp_user_dir(tmp_path):
-    """Создать временную директорию для тестов пользователя"""
-    user_id = 999999
-    user_dir = tmp_path / str(user_id)
-    user_dir.mkdir()
-    return user_dir, user_id, tmp_path
+def unique_user_id():
+    """Create unique user_id for each test to prevent cross-test interference"""
+    import random
+    return 5000000000 + random.randint(0, 1000000)
+
+
+@pytest.fixture
+def fm(unique_user_id, tmp_path):
+    """Create FileManager with unique user_id and clean tmp_path"""
+    return FileManager(str(tmp_path)), unique_user_id
 
 
 class TestArchiveCompletedTasks:
-    def test_archive_completed_tasks(self, tmp_user_dir):
+    def test_archive_completed_tasks(self, fm):
         """Проверить архивацию выполненных задач"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
 
         completed_at = datetime(2026, 3, 10, 9, 0)
         
@@ -75,10 +89,9 @@ class TestArchiveCompletedTasks:
         assert "task_001" in archive_ids
         assert "task_002" in archive_ids
 
-    def test_archive_completed_tasks_no_completed(self, tmp_user_dir):
+    def test_archive_completed_tasks_no_completed(self, fm):
         """Архивация когда нет выполненных задач"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
 
         task = Task(
             id="task_001",
@@ -98,10 +111,9 @@ class TestArchiveCompletedTasks:
         tasks = fm.read_tasks(user_id)
         assert len(tasks) == 1
 
-    def test_archive_completed_tasks_different_dates(self, tmp_user_dir):
+    def test_archive_completed_tasks_different_dates(self, fm):
         """Архивация задач с разными датами выполнения"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
 
         task1 = Task(
             id="task_001",
@@ -137,13 +149,13 @@ class TestArchiveCompletedTasks:
 
 
 class TestGetArchiveDates:
-    def test_get_archive_dates(self, tmp_user_dir):
+    def test_get_archive_dates(self, fm, tmp_path):
         """Получение списка дат архива"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
+        user_dir = tmp_path / str(user_id)
 
         archive_dir = user_dir / "archive"
-        archive_dir.mkdir()
+        archive_dir.mkdir(parents=True, exist_ok=True)
 
         (archive_dir / "2026-03-10.md").write_text("---\ntype: archived_tasks\ndate: 2026-03-10\n---\n\n## task_001\ntitle: Task 1\n")
         (archive_dir / "2026-03-11.md").write_text("---\ntype: archived_tasks\ndate: 2026-03-11\n---\n\n## task_002\ntitle: Task 2\n")
@@ -154,31 +166,31 @@ class TestGetArchiveDates:
         assert "2026-03-11" in dates
         assert dates == sorted(dates)
 
-    def test_get_archive_dates_empty(self, tmp_user_dir):
+    def test_get_archive_dates_empty(self, fm, tmp_path):
         """Получение списка дат когда архив пуст"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
+        user_dir = tmp_path / str(user_id)
 
         dates = fm.get_archive_dates(user_id)
         assert dates == []
 
-    def test_get_archive_dates_no_archive_dir(self, tmp_user_dir):
+    def test_get_archive_dates_no_archive_dir(self, fm, tmp_path):
         """Получение списка дат когда папка архива не существует"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
+        user_dir = tmp_path / str(user_id)
 
         dates = fm.get_archive_dates(user_id)
         assert dates == []
 
 
 class TestGetTasksByArchiveDate:
-    def test_get_tasks_by_archive_date(self, tmp_user_dir):
+    def test_get_tasks_by_archive_date(self, fm, tmp_path):
         """Получение задач из архива за указанную дату"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
+        user_dir = tmp_path / str(user_id)
 
         archive_dir = user_dir / "archive"
-        archive_dir.mkdir()
+        archive_dir.mkdir(parents=True, exist_ok=True)
 
         archive_content = """---
 type: archived_tasks
@@ -206,21 +218,20 @@ content: Отчёт подготовлен
         assert tasks[0].status == "completed"
         assert tasks[0].content == "Отчёт подготовлен"
 
-    def test_get_tasks_by_archive_date_not_found(self, tmp_user_dir):
+    def test_get_tasks_by_archive_date_not_found(self, fm):
         """Получение задач когда файл архива не существует"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
 
         tasks = fm.get_tasks_by_archive_date(user_id, "2026-03-10")
         assert tasks == []
 
-    def test_get_tasks_by_archive_date_empty(self, tmp_user_dir):
+    def test_get_tasks_by_archive_date_empty(self, fm, tmp_path):
         """Получение задач когда файл архива пустой"""
-        user_dir, user_id, tmp_path = tmp_user_dir
-        fm = FileManager(str(tmp_path))
+        fm, user_id = fm
+        user_dir = tmp_path / str(user_id)
 
         archive_dir = user_dir / "archive"
-        archive_dir.mkdir()
+        archive_dir.mkdir(parents=True, exist_ok=True)
         (archive_dir / "2026-03-10.md").write_text("---\ntype: archived_tasks\n---\n")
 
         tasks = fm.get_tasks_by_archive_date(user_id, "2026-03-10")

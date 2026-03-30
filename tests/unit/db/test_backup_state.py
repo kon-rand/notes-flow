@@ -5,6 +5,25 @@ from pathlib import Path
 
 import pytest
 
+@pytest.fixture(autouse=True)
+def cleanup_user_settings(tmp_path):
+    """Clean up user settings before each test to ensure isolation"""
+    from bot.config.user_settings import SETTINGS_FILE
+    settings_path = tmp_path / SETTINGS_FILE
+    if settings_path.exists():
+        settings_path.unlink()
+    yield
+    if settings_path.exists():
+        settings_path.unlink()
+
+
+@pytest.fixture
+def unique_user_id():
+    """Create unique user_id for each test to prevent cross-test interference"""
+    import random
+    return 5000000000 + random.randint(0, 1000000)
+
+
 from bot.db.backup_state import BackupState, BackupStateManager
 
 

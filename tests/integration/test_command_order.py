@@ -10,7 +10,17 @@ Fix: archive_router is registered AFTER summarizer_router in bot/main.py.
 import sys
 sys.path.insert(0, '/home/kuzya/projects/notes-flow')
 
+import os
 import pytest
+
+@pytest.fixture(autouse=True)
+def cleanup_user_settings():
+    """Clean up user settings before each test to ensure isolation"""
+    from bot.config.user_settings import SETTINGS_FILE
+    if Path(SETTINGS_FILE).exists():
+        Path(SETTINGS_FILE).unlink()
+    yield
+
 import ast
 import inspect
 from datetime import datetime
@@ -42,7 +52,7 @@ def clean_data_dir():
 
 @pytest.fixture
 def user_id():
-    return 123456789
+    return 5000000000
 
 
 class TestCommandRegistrationOrder:
@@ -123,7 +133,9 @@ class TestCommandRegistrationOrder:
     async def test_all_commands_defined_in_entrypoint(self):
         """Verify all commands in main.py match registered handlers"""
         # Read bot/main.py
-        with open('bot/main.py', 'r') as f:
+        import os
+        main_path = os.path.join(os.path.dirname(__file__), '..', '..', 'bot', 'main.py')
+        with open(main_path, 'r') as f:
             main_content = f.read()
         
         # Parse BotCommand definitions
@@ -277,7 +289,9 @@ class TestBotOrdering:
         This ensures /summarize is NOT intercepted by archive_date_handler
         """
         # Read bot/main.py and verify order
-        with open('bot/main.py', 'r') as f:
+        import os
+        main_path = os.path.join(os.path.dirname(__file__), '..', '..', 'bot', 'main.py')
+        with open(main_path, 'r') as f:
             main_content = f.read()
         
         # Find include_router calls

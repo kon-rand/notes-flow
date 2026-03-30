@@ -2,6 +2,15 @@ import sys
 sys.path.insert(0, '/home/kuzya/projects/notes-flow')
 
 import pytest
+
+@pytest.fixture(autouse=True)
+def cleanup_user_settings():
+    """Clean up user settings before each test to ensure isolation"""
+    from bot.config.user_settings import SETTINGS_FILE
+    if Path(SETTINGS_FILE).exists():
+        Path(SETTINGS_FILE).unlink()
+    yield
+
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 import shutil
@@ -26,7 +35,9 @@ def clean_data_dir():
 
 @pytest.fixture
 def user_id():
-    return 123456789
+    """Create unique user_id for each test to prevent cross-test interference"""
+    import random
+    return 5000000000 + random.randint(0, 1000000)
 
 
 class TestBotCommandsRegression:

@@ -133,6 +133,12 @@ class OpenAIClient:
 - Включай сроки в заголовок если они есть (например "к 8му апреля" → "к 8-му апреля")
 - Если сообщение содержит ссылку на формат/пример, включи её в content, а не в title
 
+КРИТИЧЕСКИ ВАЖНО - ФОРМАТИРОВАНИЕ ССЫЛОК НА ТИКЕТЫ:
+- Если в тексте есть номер тикета (например "LAVKAINCIDENTS-1575" или "TICKET-123"), извлеки его
+- В поле content добавь ссылку в формате Markdown: [ТИКЕТ-НОМЕР](https://st.yandex-team.ru/ТИКЕТ-НОМЕР)
+- Пример: если в тексте "Тикет: LAVKAINCIDENTS-1575", добавь в content: "Ссылка на тикет: [LAVKAINCIDENTS-1575](https://st.yandex-team.ru/LAVKAINCIDENTS-1575)"
+- Если тикет упоминается в контексте задачи (например "Нужно заполнить инцидент"), включи ссылку в заголовок задачи
+
 "Кость, я тут в отпуск подумал походить, есть домашнее задание для тебя 🙈️️️️️️
 
 Самоотзыв за три месяца работы в фидбечницу написать, формат как обычно, ревьюшный, типа https://wiki.yandex-team.ru/lavka/dev/samootzyv-dev-062025/ .
@@ -156,6 +162,9 @@ class OpenAIClient:
 
 "привет, в файле taskrouter/doc/api/models/user_activity.yaml нет required, это правильно? там больше обязательных полей, но часть из них просто nullable добавишь плиз, как время будет"
 → [{{"action": "create_task", "title": "Добавить required поля в user_activity.yaml и написать Арине @ease_l", "tags": ["api", "yaml", "документация"], "content": "Arina заметила отсутствие required в файле taskrouter/doc/api/models/user_activity.yaml. Добавить обязательные поля (user_id, role_ids и другие). Написать Arine @ease_l, что задача взята в работу", "reason": "Arina попросила добавить required поля в YAML файл"}}]
+
+"Нужно заполнить инцидент. Уровень: green. Описание: Части товаров кухни нет на фронте. Тикет: LAVKAINCIDENTS-1575"
+→ [{{"action": "create_task", "title": "Заполнить инцидент [LAVKAINCIDENTS-1575](https://st.yandex-team.ru/LAVKAINCIDENTS-1575)", "tags": ["инцидент", "lavka"], "content": "Уровень: green. Описание: Части товаров кухни нет на фронте. Ссылка на тикет: [LAVKAINCIDENTS-1575](https://st.yandex-team.ru/LAVKAINCIDENTS-1575)", "reason": "Поручение заполнить инцидент с номером LAVKAINCIDENTS-1575"}}]
 
 "Это просто информация. Сегодня хорошая погода."
 → [] (пустой массив, если нет задач)

@@ -8,8 +8,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
+from bot.config.user_settings import user_settings
 from bot.config.user_settings import SETTINGS_FILE
-from bot.db.models import InboxMessage, Task, Note
+from bot.db.models import InboxMessage, Task, Note, UserSettings
 
 
 class FileManager:
@@ -31,18 +32,90 @@ class FileManager:
                     continue
         return user_ids
 
+    def migrate_id_counters(self, user_id: int) -> dict:
+        """Миграция: установить счетчики на основе существующих задач/заметок/сообщений
+        
+        Args:
+            user_id: ID пользователя
+            
+        Returns:
+            Dict с информацией о миграции:
+            {
+                "tasks_migrated": int,
+                "notes_migrated": int,
+                "messages_migrated": int,
+                "max_task_id": int,
+                "max_note_id": int,
+                "max_message_id": int,
+            }
+        """
+        # Читаем все задачи
+        tasks = self.read_tasks(user_id)
+        max_task_num = 0
+        for task in tasks:
+            # Извлекаем число из "task_XXX"
+            try:
+                num = int(task.id.split("_")[1])
+                max_task_num = max(max_task_num, num)
+            except (IndexError, ValueError):
+                continue
+        
+        # Читаем все заметки
+        notes = self.read_notes(user_id)
+        max_note_num = 0
+        for note in notes:
+            try:
+                num = int(note.id.split("_")[1])
+                max_note_num = max(max_note_num, num)
+            except (IndexError, ValueError):
+                continue
+        
+        # Читаем все сообщения
+        messages = self.read_messages(user_id)
+        max_msg_num = 0
+        for msg in messages:
+            try:
+                num = int(msg.id.split("_")[1])
+                max_msg_num = max(max_msg_num, num)
+            except (IndexError, ValueError):
+                continue
+        
+        # Обновляем счетчики
+        user_settings.update_last_task_id(user_id, max_task_num)
+        user_settings.update_last_note_id(user_id, max_note_num)
+        user_settings.update_last_message_id(user_id, max_msg_num)
+        
+        return {
+            "tasks_migrated": len(tasks),
+            "notes_migrated": len(notes),
+            "messages_migrated": len(messages),
+            "max_task_id": max_task_num,
+            "max_note_id": max_note_num,
+            "max_message_id": max_msg_num,
+        }
+
     def _get_user_dir(self, user_id: int) -> Path:
         user_dir = self.data_dir / str(user_id)
         user_dir.mkdir(parents=True, exist_ok=True)
         return user_dir
 
-    def _generate_id(self, prefix: str, existing_ids: List[str]) -> str:
-        counter = 1
-        while True:
-            id = f"{prefix}_{counter:03d}"
-            if id not in existing_ids:
-                return id
-            counter += 1
+    def _get_next_id(self, user_id: int, prefix: str) -> str:
+        """Получить следующий уникальный ID на основе счетчика"""
+        counters = user_settings.get_counters(user_id)
+        
+        if prefix == "task":
+            counter = counters.last_task_id + 1
+            user_settings.update_last_task_id(user_id, counter)
+        elif prefix == "note":
+            counter = counters.last_note_id + 1
+            user_settings.update_last_note_id(user_id, counter)
+        elif prefix == "msg":
+            counter = counters.last_message_id + 1
+            user_settings.update_last_message_id(user_id, counter)
+        else:
+            raise ValueError(f"Unknown prefix: {prefix}")
+        
+        return f"{prefix}_{counter:03d}"
 
     def _read_file(self, file_path: Path) -> Optional[dict]:
         if not file_path.exists():
@@ -125,8 +198,7 @@ class FileManager:
 
     def append_message(self, user_id: int, message: InboxMessage) -> None:
         items = self._load_all_items(user_id, "inbox")
-        existing_ids = [item[0] for item in items]
-        msg_id = self._generate_id("msg", existing_ids)
+        msg_id = self._get_next_id(user_id, "msg")
         item_data = {
             "timestamp": message.timestamp,
             "from_user": message.from_user,
@@ -388,8 +460,7 @@ class FileManager:
 
     def append_task(self, user_id: int, task: Task) -> None:
         items = self._load_all_items(user_id, "tasks")
-        existing_ids = [item[0] for item in items]
-        task_id = self._generate_id("task", existing_ids)
+        task_id = self._get_next_id(user_id, "task")
         item_data = {
             "title": task.title,
             "tags": task.tags,
@@ -488,8 +559,7 @@ class FileManager:
 
     def append_note(self, user_id: int, note: Note) -> None:
         items = self._load_all_items(user_id, "notes")
-        existing_ids = [item[0] for item in items]
-        note_id = self._generate_id("note", existing_ids)
+        note_id = self._get_next_id(user_id, "note")
         item_data = {
             "title": note.title,
             "tags": note.tags,

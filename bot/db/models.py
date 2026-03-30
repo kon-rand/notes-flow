@@ -32,3 +32,11 @@ class Note(BaseModel):
     created_at: datetime
     source_message_ids: List[str]
     content: str
+
+
+class UserSettings(BaseModel):
+    """Настройки пользователя с сохранением последнего использованного ID"""
+    delay: int  # Задержка саммаризации в секундах
+    last_task_id: int = 0  # Последний использованный номер задачи
+    last_note_id: int = 0  # Последний использованный номер заметки
+    last_message_id: int = 0  # Последний использованный номер сообщения

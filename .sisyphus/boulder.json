@@ -1,9 +1,9 @@
 {
-  "active_plan": "/home/kuzya/projects/notes-flow/.sisyphus/plans/auto-backup.md",
-  "started_at": "2026-03-28T20:33:37.672Z",
+  "active_plan": "/home/kuzya/projects/notes-flow/.sisyphus/plans/undone-command.md",
+  "started_at": "2026-03-29T10:17:52.927Z",
   "session_ids": [
-    "ses_2d02df6dfffeATpdTreGPaMnTy"
+    "ses_2c7306eadffe7Gg3w3F9TpIWD5"
   ],
-  "plan_name": "auto-backup",
+  "plan_name": "undone-command",
   "agent": "atlas"
 }

@@ -21,29 +21,40 @@ logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
 
-async def nightly_archive(user_id: int, bot: Bot) -> None:
-    """Ночная архивация и создание бэкапа"""
+async def nightly_archive(bot: Bot) -> None:
+    """Ночная архивация и создание бэкапа для всех пользователей"""
     try:
-        logger.info(f"🌙 Запуск ночной архивации для пользователя {user_id}")
+        logger.info(f"🌙 Запуск ночной архивации для всех пользователей")
         
         file_manager = FileManager()
         today = datetime.now()
         
-        # Архивируем выполненные задачи
-        archived_tasks = file_manager.archive_completed_tasks(user_id, today)
+        # Получаем список всех пользователей
+        user_ids = file_manager.get_all_user_ids()
+        logger.info(f"📊 Найдено пользователей: {len(user_ids)}")
         
-        if archived_tasks:
-            logger.info(f"✅ Архивировано {len(archived_tasks)} задач за {today.strftime('%Y-%m-%d')}")
-            
-            # Запускаем бэкап ТОЛЬКО после ночной архивации
-            if backup_scheduler:
-                logger.info(f"📦 Планирование бэкапа после ночной архивации для пользователя {user_id}")
-                await backup_scheduler.schedule_backup(user_id)
-        else:
-            logger.info(f"ℹ️ Нет задач для архивации у пользователя {user_id}")
+        for user_id in user_ids:
+            try:
+                logger.info(f"🌙 Обработка пользователя {user_id}")
+                
+                # Архивируем выполненные задачи
+                archived_tasks = file_manager.archive_completed_tasks(user_id, today)
+                
+                if archived_tasks:
+                    logger.info(f"✅ Архивировано {len(archived_tasks)} задач за {today.strftime('%Y-%m-%d')}")
+                    
+                    # Запускаем бэкап ТОЛЬКО после ночной архивации
+                    if backup_scheduler:
+                        logger.info(f"📦 Планирование бэкапа после ночной архивации для пользователя {user_id}")
+                        await backup_scheduler.schedule_backup(user_id)
+                else:
+                    logger.info(f"ℹ️ Нет задач для архивации у пользователя {user_id}")
+            except Exception as e:
+                logger.error(f"❌ Ошибка обработки пользователя {user_id}: {e}")
+                continue
             
     except Exception as e:
-        logger.error(f"❌ Ошибка ночной архивации для пользователя {user_id}: {e}")
+        logger.error(f"❌ Ошибка ночной архивации: {e}")
 
 
 def setup_nightly_tasks(bot: Bot) -> None:
@@ -58,6 +69,7 @@ def setup_nightly_tasks(bot: Bot) -> None:
     )
     
     logger.info("✅ Ночная архивация настроена на 02:00")
+    logger.info(f"   Будет обрабатывать всех пользователей из data/")
 
 
 def start_scheduler() -> None:

@@ -2,6 +2,15 @@ import sys
 sys.path.insert(0, '/home/kuzya/projects/notes-flow')
 
 import pytest
+
+@pytest.fixture(autouse=True)
+def cleanup_user_settings():
+    """Clean up user settings before each test to ensure isolation"""
+    from bot.config.user_settings import SETTINGS_FILE
+    if Path(SETTINGS_FILE).exists():
+        Path(SETTINGS_FILE).unlink()
+    yield
+
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
@@ -12,6 +21,13 @@ from bot.db.models import InboxMessage, Task, Note
 from bot.db.file_manager import FileManager
 from utils.ollama_client import OpenAIClient
 from handlers.summarizer import auto_summarize
+
+
+@pytest.fixture
+def unique_user_id():
+    """Create unique user_id for each test to prevent cross-test interference"""
+    import random
+    return 5000000000 + random.randint(0, 1000000)
 
 
 @pytest.fixture
@@ -27,13 +43,13 @@ def clean_data_dir():
 
 
 @pytest.fixture
-def sample_message():
+def sample_message(unique_user_id):
     """Create a sample inbox message"""
     return InboxMessage(
         id="msg_001",
         timestamp=datetime(2026, 3, 6, 14, 0, 0),
-        from_user=123456789,
-        sender_id=123456789,
+        from_user=unique_user_id,
+        sender_id=unique_user_id,
         sender_name="Test User",
         content="Нужно подготовить отчёт по проекту",
         chat_id=-1001234567890
@@ -41,14 +57,14 @@ def sample_message():
 
 
 @pytest.fixture
-def sample_messages():
+def sample_messages(unique_user_id):
     """Create multiple sample messages"""
     return [
         InboxMessage(
             id="msg_001",
             timestamp=datetime(2026, 3, 6, 14, 0, 0),
-            from_user=123456789,
-            sender_id=123456789,
+            from_user=unique_user_id,
+            sender_id=unique_user_id,
             sender_name="Test User",
             content="Нужно подготовить отчёт по проекту",
             chat_id=-1001234567890
@@ -56,8 +72,8 @@ def sample_messages():
         InboxMessage(
             id="msg_002",
             timestamp=datetime(2026, 3, 6, 14, 5, 0),
-            from_user=123456789,
-            sender_id=123456789,
+            from_user=unique_user_id,
+            sender_id=unique_user_id,
             sender_name="Test User",
             content="Вот данные для отчёта: [ссылка на файл]",
             chat_id=-1001234567890
@@ -70,7 +86,7 @@ class TestFileManagerIntegration:
 
     def test_append_and_read_message(self, clean_data_dir, sample_message):
         """Test: append message → read messages"""
-        user_id = 123456789
+        user_id = sample_message.from_user
         fm = FileManager()
         
         fm.append_message(user_id, sample_message)
@@ -84,7 +100,7 @@ class TestFileManagerIntegration:
 
     def test_clear_messages(self, clean_data_dir, sample_message):
         """Test: append messages → clear → verify empty"""
-        user_id = 123456789
+        user_id = sample_message.from_user
         fm = FileManager()
         
         fm.append_message(user_id, sample_message)
@@ -96,7 +112,7 @@ class TestFileManagerIntegration:
 
     def test_multiple_messages(self, clean_data_dir, sample_messages):
         """Test: append multiple messages → read all"""
-        user_id = 123456789
+        user_id = sample_messages[0].from_user
         fm = FileManager()
         
         for msg in sample_messages:

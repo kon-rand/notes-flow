@@ -16,15 +16,39 @@ from pathlib import Path
 from datetime import datetime
 
 import pytest
+from pathlib import Path
+from datetime import datetime
+import json
+import zipfile
+import io
 
 from bot.db.file_manager import FileManager
-from bot.config.user_settings import SETTINGS_FILE
+from bot.db.models import InboxMessage, Task, Note
 
 
 @pytest.fixture
-def sample_user_id():
-    """Sample user ID for tests"""
-    return 123456789
+def cleanup_user_settings(tmp_path):
+    """Clean up user settings before each test to ensure isolation"""
+    from bot.config.user_settings import SETTINGS_FILE
+    settings_path = tmp_path / SETTINGS_FILE
+    if settings_path.exists():
+        settings_path.unlink()
+    yield
+    if settings_path.exists():
+        settings_path.unlink()
+
+
+@pytest.fixture
+def unique_user_id():
+    """Create unique user_id for each test to prevent cross-test interference"""
+    import random
+    return 5000000000 + random.randint(0, 1000000)
+
+
+@pytest.fixture
+def sample_user_id(unique_user_id):
+    """Sample user ID for tests (alias for unique_user_id)"""
+    return unique_user_id
 
 
 @pytest.fixture
@@ -1069,7 +1093,7 @@ class TestRestoreUserSettings:
         
         restored_settings = json.loads(settings_path.read_text())
         assert str(sample_user_id) in restored_settings
-        assert restored_settings[str(sample_user_id)] == 600
+        assert restored_settings[str(sample_user_id)]['delay'] == 600
         
         os.chdir("/")
 

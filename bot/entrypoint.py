@@ -32,9 +32,8 @@ async def ping_handler() -> JSONResponse:
     return JSONResponse(content=result, status_code=status_code)
 
 
-async def run_bot():
+async def run_bot(bot: Bot):
     """Запуск Telegram бота"""
-    bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
     dp = Dispatcher()
 
     commands = [
@@ -84,8 +83,15 @@ async def main():
     )
     logging.info("Starting Notes Flow application...")
     
+    bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+    
     # Start nightly scheduler
     start_scheduler()
+    
+    # Setup nightly tasks with bot - CRITICAL: must be called before tasks run
+    from bot.scheduler.nightly_tasks import setup_nightly_tasks
+    setup_nightly_tasks(bot)
+    logging.info("✅ Ночные задачи настроены")
     
     # Setup graceful shutdown
     def signal_handler(sig, frame):
@@ -96,7 +102,7 @@ async def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    bot_task = asyncio.create_task(run_bot())
+    bot_task = asyncio.create_task(run_bot(bot))
     server_task = asyncio.create_task(run_server())
 
     await asyncio.gather(bot_task, server_task)

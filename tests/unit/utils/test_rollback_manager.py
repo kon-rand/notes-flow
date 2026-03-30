@@ -1,5 +1,14 @@
 import sys
 import pytest
+
+@pytest.fixture(autouse=True)
+def cleanup_user_settings():
+    """Clean up user settings before each test to ensure isolation"""
+    from bot.config.user_settings import SETTINGS_FILE
+    if Path(SETTINGS_FILE).exists():
+        Path(SETTINGS_FILE).unlink()
+    yield
+
 sys.path.insert(0, '/home/kuzya/projects/notes-flow')
 
 from pathlib import Path
