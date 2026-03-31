@@ -33,6 +33,8 @@ class UserSettings:
                 "last_task_id": settings.last_task_id,
                 "last_note_id": settings.last_note_id,
                 "last_message_id": settings.last_message_id,
+                "tasks_message_id": settings.tasks_message_id,
+                "archive_message_id": settings.archive_message_id,
             }
             for uid, settings in self._settings.items()
         }
@@ -76,6 +78,20 @@ class UserSettings:
         if user_id not in self._settings:
             self._settings[user_id] = UserSettingsModel(delay=300)
         self._settings[user_id].last_message_id = new_id
+        self._save()
+    
+    def update_tasks_message_id(self, user_id: int, new_id: int):
+        """Обновить ID последнего сообщения /tasks"""
+        if user_id not in self._settings:
+            self._settings[user_id] = UserSettingsModel(delay=300)
+        self._settings[user_id].tasks_message_id = new_id
+        self._save()
+    
+    def update_archive_message_id(self, user_id: int, new_id: int):
+        """Обновить ID последнего сообщения /archive"""
+        if user_id not in self._settings:
+            self._settings[user_id] = UserSettingsModel(delay=300)
+        self._settings[user_id].archive_message_id = new_id
         self._save()
 
 

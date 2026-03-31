@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch, call
 from datetime import datetime, timedelta
 
 from bot.db.models import Task
@@ -17,6 +17,25 @@ def mock_message():
     msg.from_user.id = 123456789
     msg.answer = AsyncMock()
     msg.text = "/archived"
+    msg.chat = MagicMock()
+    msg.chat.id = 123456789
+    msg.bot = AsyncMock()
+    return msg
+
+
+@pytest.fixture
+def mock_message_with_bot():
+    """Mock Telegram message with bot for update_or_create_archive_message"""
+    msg = MagicMock()
+    msg.from_user = AsyncMock()
+    msg.from_user.id = 123456789
+    msg.answer = AsyncMock()
+    msg.answer.return_value = MagicMock(message_id=999)
+    msg.text = "/archive"
+    msg.chat = MagicMock()
+    msg.chat.id = 123456789
+    msg.bot = AsyncMock()
+    msg.bot.edit_message_text = AsyncMock()
     return msg
 
 
@@ -155,37 +174,42 @@ async def test_archived_handler_no_user(mock_message):
 
 
 @pytest.mark.asyncio
-async def test_archive_handler_no_completed_tasks(mock_message):
+async def test_archive_handler_no_completed_tasks(mock_message_with_bot):
     """Тест: /archive без выполненных задач за сегодня"""
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.archive_completed_tasks.return_value = []
         MockFM.return_value = fm_instance
         
-        await archive_handler(mock_message)
-        
-        mock_message.answer.assert_called_once()
-        response = mock_message.answer.call_args[0][0]
-        
-        today = datetime.now().strftime('%Y-%m-%d')
-        assert f"Архивировано задач за {today}: 0" in response
+        with patch('handlers.commands.update_or_create_archive_message') as mock_update:
+            mock_update.return_value = 999
+            await archive_handler(mock_message_with_bot)
+            
+            # update_or_create_archive_message должен быть вызван
+            mock_update.assert_called_once()
+            response = mock_update.call_args[0][1]
+            
+            today = datetime.now().strftime('%Y-%m-%d')
+            assert f"Архивировано задач за {today}: 0" in response
 
 
 @pytest.mark.asyncio
-async def test_archive_handler_with_completed_tasks(mock_message, sample_tasks):
+async def test_archive_handler_with_completed_tasks(mock_message_with_bot, sample_tasks):
     """Тест: /archive с выполненными задачами за сегодня"""
     with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.archive_completed_tasks.return_value = sample_tasks
         MockFM.return_value = fm_instance
         
-        await archive_handler(mock_message)
-        
-        mock_message.answer.assert_called_once()
-        response = mock_message.answer.call_args[0][0]
-        
-        today = datetime.now().strftime('%Y-%m-%d')
-        assert f"Архивировано задач за {today}: 2" in response
+        with patch('handlers.commands.update_or_create_archive_message') as mock_update:
+            mock_update.return_value = 999
+            await archive_handler(mock_message_with_bot)
+            
+            mock_update.assert_called_once()
+            response = mock_update.call_args[0][1]
+            
+            today = datetime.now().strftime('%Y-%m-%d')
+            assert f"Архивировано задач за {today}: 2" in response
 
 
 @pytest.mark.asyncio

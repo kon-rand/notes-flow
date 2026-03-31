@@ -40,3 +40,5 @@ class UserSettings(BaseModel):
     last_task_id: int = 0  # Последний использованный номер задачи
     last_note_id: int = 0  # Последний использованный номер заметки
     last_message_id: int = 0  # Последний использованный номер сообщения
+    tasks_message_id: Optional[int] = None  # ID последнего сообщения /tasks
+    archive_message_id: Optional[int] = None  # ID последнего сообщения /archive

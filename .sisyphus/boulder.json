@@ -1,9 +1,9 @@
 {
-  "active_plan": "/home/kuzya/projects/notes-flow/.sisyphus/plans/undone-command.md",
-  "started_at": "2026-03-29T10:17:52.927Z",
+  "active_plan": "/home/kuzya/projects/notes-flow/.sisyphus/plans/dynamic-tasks.md",
+  "started_at": "2026-03-30T12:44:39.359Z",
   "session_ids": [
-    "ses_2c7306eadffe7Gg3w3F9TpIWD5"
+    "ses_2c1785b3cffeHnKtsBZlB38ckY"
   ],
-  "plan_name": "undone-command",
+  "plan_name": "dynamic-tasks",
   "agent": "atlas"
 }

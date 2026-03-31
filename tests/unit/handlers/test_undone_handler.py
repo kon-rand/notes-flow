@@ -57,12 +57,14 @@ async def test_undone_handler_active_task(mock_message, unique_user_id, tmp_path
     mock_message.from_user.id = unique_user_id
     
     # Execute
-    await undone_task_handler(mock_message)
-    
-    # Verify
-    mock_message.answer.assert_called_once()
-    call_args = mock_message.answer.call_args[0][0]
-    assert "не найдена" in call_args  # Task not in archive, restore_task_from_archive returns False
+    with patch('handlers.commands.update_or_create_task_message') as mock_update:
+        mock_update.return_value = 999
+        await undone_task_handler(mock_message)
+        
+        # Verify
+        mock_update.assert_called_once()
+        call_args = mock_update.call_args[0][1]
+        assert "не найдена" in call_args  # Task not in archive, restore_task_from_archive returns False
 
 
 @pytest.mark.asyncio
@@ -107,15 +109,17 @@ content: Тестовая задача
     
     try:
         # Execute
-        await undone_task_handler(mock_message)
+        with patch('handlers.commands.update_or_create_task_message') as mock_update:
+            mock_update.return_value = 999
+            await undone_task_handler(mock_message)
+            
+            # Verify
+            mock_update.assert_called_once()
+            call_args = mock_update.call_args[0][1]
+            assert "возвращена" in call_args  # Success message
     finally:
         # Restore original
         commands.FileManager = original_file_manager
-    
-    # Verify
-    mock_message.answer.assert_called_once()
-    call_args = mock_message.answer.call_args[0][0]
-    assert "возвращена" in call_args  # Success message
     
     # Verify task was moved to active
     tasks = fm.read_tasks(unique_user_id)
@@ -137,12 +141,14 @@ async def test_undone_handler_task_not_found(mock_message, unique_user_id, tmp_p
     mock_message.from_user.id = unique_user_id
     
     # Execute
-    await undone_task_handler(mock_message)
-    
-    # Verify
-    mock_message.answer.assert_called_once()
-    call_args = mock_message.answer.call_args[0][0]
-    assert "не найдена" in call_args
+    with patch('handlers.commands.update_or_create_task_message') as mock_update:
+        mock_update.return_value = 999
+        await undone_task_handler(mock_message)
+        
+        # Verify
+        mock_update.assert_called_once()
+        call_args = mock_update.call_args[0][1]
+        assert "не найдена" in call_args
 
 
 @pytest.mark.asyncio

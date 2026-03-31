@@ -11,6 +11,7 @@ from bot.timers.manager import SummarizeTimer, summarizer_timer
 from bot.db.file_manager import FileManager
 from bot.config import settings
 from bot.config.user_settings import user_settings
+from bot.helpers.message_updater import update_or_create_task_message, update_or_create_archive_message
 
 logger = logging.getLogger(__name__)
 
@@ -149,21 +150,21 @@ async def inbox_handler(message: Message):
     user_id = message.from_user.id
     
     if not os.path.exists(f"data/{user_id}/inbox.md"):
-        await message.answer("Инбокс пуст")
+        await update_or_create_archive_message(message, "Инбокс пуст")
         return
     
     file_manager = FileManager()
     messages = file_manager.read_messages(user_id)
     
     if not messages:
-        await message.answer("Инбокс пуст")
+        await update_or_create_archive_message(message, "Инбокс пуст")
         return
     
     response = "📥 Ваш инбокс:\n\n"
     for msg in messages:
         response += f"• {msg.content}\n"
     
-    await message.answer(response)
+    await update_or_create_archive_message(message, response)
 
 
 @router.message(Command("tasks"))
@@ -174,14 +175,14 @@ async def tasks_handler(message: Message):
     user_id = message.from_user.id
     
     if not os.path.exists(f"data/{user_id}/tasks.md"):
-        await message.answer("У вас пока нет задач")
+        await update_or_create_task_message(message, "У вас пока нет задач")
         return
     
     file_manager = FileManager()
     tasks = file_manager.read_tasks(user_id)
     
     if not tasks:
-        await message.answer("У вас пока нет задач")
+        await update_or_create_task_message(message, "У вас пока нет задач")
         return
     
     response = "✅ Ваши задачи:\n\n"
@@ -199,7 +200,7 @@ async def tasks_handler(message: Message):
             response += f"   /undone_{task_number}   /del_{task_number}\n"
         response += "\n"
     
-    await message.answer(response)
+    await update_or_create_task_message(message, response)
 
 
 @router.message(Command("notes"))
@@ -210,14 +211,14 @@ async def notes_handler(message: Message):
     user_id = message.from_user.id
     
     if not os.path.exists(f"data/{user_id}/notes.md"):
-        await message.answer("У вас пока нет заметок")
+        await update_or_create_archive_message(message, "У вас пока нет заметок")
         return
     
     file_manager = FileManager()
     notes = file_manager.read_notes(user_id)
     
     if not notes:
-        await message.answer("У вас пока нет заметок")
+        await update_or_create_archive_message(message, "У вас пока нет заметок")
         return
     
     response = "📝 Ваши заметки:\n\n"
@@ -226,7 +227,7 @@ async def notes_handler(message: Message):
         response += f"• {note.title} [{tags}]\n"
         response += f"  {note.content}\n\n"
     
-    await message.answer(response)
+    await update_or_create_archive_message(message, response)
 
 
 @router.message(Command("clear"))
@@ -249,7 +250,8 @@ async def clear_handler(message: Message):
     file_manager = FileManager()
     file_manager.clear_messages(user_id)
     
-    await message.answer("Инбокс очищен")
+    await update_or_create_task_message(message, "Инбокс очищен")
+    await update_or_create_archive_message(message, "Инбокс очищен")
 
 
 @router.message(F.text.startswith("/done_"))
@@ -270,9 +272,9 @@ async def done_task_handler(message: Message):
     success = file_manager.update_task_status(user_id, task_id, "completed")
     
     if success:
-        await message.answer(f"✅ Задача {task_number} отмечена как выполненная")
+        await update_or_create_task_message(message, f"✅ Задача {task_number} отмечена как выполненная")
     else:
-        await message.answer(f"❌ Задача {task_number} не найдена")
+        await update_or_create_task_message(message, f"❌ Задача {task_number} не найдена")
 
 
 @router.message(F.text.startswith("/del_"))
@@ -293,9 +295,9 @@ async def delete_task_handler(message: Message):
     success = file_manager.delete_task(user_id, task_id)
     
     if success:
-        await message.answer(f"✅ Задача {task_number} удалена")
+        await update_or_create_task_message(message, f"✅ Задача {task_number} удалена")
     else:
-        await message.answer(f"❌ Задача {task_number} не найдена")
+        await update_or_create_task_message(message, f"❌ Задача {task_number} не найдена")
 
 
 @router.message(F.text.startswith("/undone_"))
@@ -316,9 +318,9 @@ async def undone_task_handler(message: Message):
     success = file_manager.restore_task_from_archive(user_id, task_id)
     
     if success:
-        await message.answer(f"✅ Задача {task_number} возвращена в невыполненное состояние")
+        await update_or_create_task_message(message, f"✅ Задача {task_number} возвращена в невыполненное состояние")
     else:
-        await message.answer(f"❌ Задача {task_number} не найдена")
+        await update_or_create_task_message(message, f"❌ Задача {task_number} не найдена")
 
 
 @router.message(Command("archived"))
@@ -447,7 +449,8 @@ async def archive_handler(message: Message):
     file_manager = FileManager()
     archived_tasks = file_manager.archive_completed_tasks(user_id, today)
     
-    await message.answer(f"✅ Архивировано задач за {today.strftime('%Y-%m-%d')}: {len(archived_tasks)}")
+    response = f"✅ Архивировано задач за {today.strftime('%Y-%m-%d')}: {len(archived_tasks)}"
+    await update_or_create_archive_message(message, response)
 
 @router.message(Command("backup"))
 async def backup_handler(message: Message):

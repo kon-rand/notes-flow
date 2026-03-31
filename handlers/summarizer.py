@@ -11,6 +11,7 @@ from bot.db.file_manager import FileManager
 from bot.db.models import Task, Note
 from utils.ollama_client import OpenAIClient, OpenAIConfig
 from utils.error_types import LLMTimeoutError, LLMNetworkError, LLMResponseError, LLMError
+from bot.helpers.message_updater import update_or_create_task_message
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,21 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup
                 await bot.send_message(user_id, report_text.strip())
             except Exception:
                 pass
+        
+        # Обновляем /tasks после саммаризации
+        if bot:
+            try:
+                from bot.helpers.message_updater import update_or_create_task_message
+                # Создаём временное сообщение для вызова update
+                temp_msg = type('obj', (object,), {
+                    'from_user': type('obj', (object,), {'id': user_id})(),
+                    'chat': type('obj', (object,), {'id': user_id})(),
+                    'bot': bot,
+                    'text': None
+                })()
+                await update_or_create_task_message(temp_msg, "✅ Саммаризация завершена")
+            except Exception as e:
+                logger.warning(f"Failed to update /tasks after summarization: {e}")
         
         return {
             "tasks_created": tasks_created,

@@ -11,8 +11,6 @@ from typing import List, Optional
 from bot.config.user_settings import user_settings
 from bot.config.user_settings import SETTINGS_FILE
 from bot.db.models import InboxMessage, Task, Note, UserSettings
-
-
 class FileManager:
     def __init__(self, data_dir: str = "data"):
         self.data_dir = Path(data_dir)
@@ -122,7 +120,10 @@ class FileManager:
             return None
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        return self._parse_file(content)
+        
+        result = self._parse_file(content)
+        
+        return result
 
     def _parse_file(self, content: str) -> dict:
         parts = content.split("---\n")
@@ -133,6 +134,7 @@ class FileManager:
         except yaml.YAMLError:
             metadata = {}
         items = []
+        
         # Split by both formats: '\n---\n## ' and '\n## '
         content = parts[2].strip()
         item_blocks = content.split("\n## ")
@@ -140,29 +142,158 @@ class FileManager:
             block = block.strip()
             if not block:
                 continue
+            
+            # Manual parsing for multi-line strings
             lines = block.split("\n")
             if not lines:
                 continue
+            
             item_id = lines[0].strip().lstrip("#").strip()
             item_data: dict[str, object] = {}
-            for line in lines[1:]:
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    key = key.strip()
+            
+            # Track if we're in a multi-line string value
+            current_key = None
+            current_value_lines: list[str] = []
+            in_content_field = False
+            content_ended = False
+            in_quoted_string = False
+            quote_started_at_line = -1
+            
+            for line_idx, line in enumerate(lines[1:]):
+                if not line.strip():
+                    continue
+                    
+                stripped_line = line.strip()
+                
+                 # Check if we're inside a quoted string
+                if in_quoted_string:
+                    # Check if this line ends with a closing quote
+                    # The closing quote can be at the end of the line (e.g., `)""`)
+                    # or at the start of a new line (e.g., `""`)
+                    if stripped_line.endswith('""'):
+                        # This is the closing quote at the end
+                        current_value_lines.append(stripped_line)
+                        in_quoted_string = False
+                        content_ended = True
+                        
+                    elif stripped_line.startswith('"'):
+                        # This is a closing quote at the start
+                        current_value_lines.append(stripped_line)
+                        in_quoted_string = False
+                        content_ended = True
+                        
+                    else:
+                        # Continue collecting
+                        current_value_lines.append(stripped_line)
+                    continue
+                
+                # Check if this is a new key-value pair
+                # A valid key must be: word characters followed by colon
+                # Examples: "timestamp:", "from_user:", "content:", "chat_id:"
+                # NOT: "Написать самоотзыв..." (this is content continuation)
+                is_valid_key = stripped_line and not line.startswith(" ") and ":" in stripped_line
+                
+                # Check if it looks like a valid YAML key (word: value format)
+                if is_valid_key:
+                    key_part = stripped_line.split(":", 1)[0].strip()
+                    looks_like_key = key_part and all(c.isalnum() or c in "_-" for c in key_part)
+                else:
+                    looks_like_key = False
+                
+                if looks_like_key:
+                    # If we were in content field with quoted string, save what we have so far
+                    if current_key == "content" and in_quoted_string:
+                        # The quoted string wasn't closed, save what we have
+                        item_data[current_key] = "\n".join(current_value_lines)
+                        current_value_lines = []
+                        in_quoted_string = False
+                    
+                    # If we were in content field, save what we have so far
+                    if current_key == "content" and not content_ended and current_value_lines:
+                        item_data[current_key] = "\n".join(current_value_lines)
+                        current_value_lines = []
+                        content_ended = True
+                    
+                    # Parse new key-value
+                    key, value = stripped_line.split(":", 1)
+                    current_key = key.strip()
                     value = value.strip()
+                    
                     if value == "null":
-                        item_data[key] = None
+                        item_data[current_key] = None
+                        current_key = None
+                        in_content_field = False
                     elif value.startswith("[") and value.endswith("]"):
                         inner = value[1:-1].strip()
                         if inner:
-                            item_data[key] = [x.strip().strip('"').strip("'") for x in inner.split(",")]
+                            item_data[current_key] = [x.strip().strip('"').strip("'") for x in inner.split(",")]
                         else:
-                            item_data[key] = []
+                            item_data[current_key] = []
+                        current_key = None
+                        in_content_field = False
+                    elif current_key == "content":
+                        # Start collecting content field
+                        in_content_field = True
+                        content_ended = False
+                        
+                        # Check if value is quoted
+                        if value.startswith('"') and value.endswith('"') and len(value) > 1:
+                            # Single line quoted string - strip quotes
+                            item_data[current_key] = value[1:-1]
+                            current_key = None
+                            in_content_field = False
+                        elif value.startswith('"'):
+                            # Multi-line quoted string starting
+                            in_quoted_string = True
+                            quote_started_at_line = line_idx
+                            
+                            # Add the part after the opening quote
+                            if len(value) > 1:
+                                current_value_lines.append(value[1:])
+                                
+                        else:
+                            # If value is on same line, add it
+                            if value:
+                                current_value_lines.append(value)
                     else:
                         try:
-                            item_data[key] = datetime.fromisoformat(value)
+                            item_data[current_key] = datetime.fromisoformat(value)
                         except ValueError:
-                            item_data[key] = value
+                            item_data[current_key] = value
+                        current_key = None
+                        in_content_field = False
+                elif in_content_field and current_key == "content" and not content_ended and not in_quoted_string:
+                    # This is a continuation of the content field
+                    current_value_lines.append(line.strip())
+            
+           # Save content field if exists
+            if current_key == "content" and not content_ended and current_value_lines:
+                # Strip quotes if present
+                full_content = "\n".join(current_value_lines)
+                
+                # Remove leading quote
+                if full_content.startswith('"'):
+                    full_content = full_content[1:]
+                # Remove trailing quotes (can be one or two)
+                if full_content.endswith('""'):
+                    full_content = full_content[:-2]
+                elif full_content.endswith('"'):
+                    full_content = full_content[:-1]
+                
+                item_data[current_key] = full_content
+            elif current_key == "content" and content_ended and current_value_lines:
+                # Content was closed, save it now
+                full_content = "\n".join(current_value_lines)
+                
+                # Remove trailing quotes
+                if full_content.endswith('""'):
+                    full_content = full_content[:-2]
+                elif full_content.endswith('"'):
+                    full_content = full_content[:-1]
+                
+                item_data[current_key] = full_content
+            
+            
             items.append((item_id, item_data))
         return {"metadata": metadata, "items": items}
 
@@ -175,6 +306,10 @@ class FileManager:
                 value = "null"
             elif isinstance(value, list):
                 value = "[" + ", ".join(f'"{x}"' for x in value) + "]"
+            elif isinstance(value, str) and "\n" in value:
+                # Use double quotes and escape newlines
+                escaped = value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                value = f'"{escaped}"'
             else:
                 value = str(value)
             lines.append(f"{key}: {value}")
@@ -777,8 +912,6 @@ class FileManager:
         
         archive_date, task = archive_result
         
-        archive_date_str, task = archive_result
-        
         task.status = "pending"
         task.archived_at = None
         
@@ -813,11 +946,11 @@ class FileManager:
                 "source_message_ids": task.source_message_ids,
                 "content": task.content,
             }
-            items.append((task.id, item_data))
+            items.append((task_id, item_data))
         
         tasks_path = self._get_user_dir(user_id) / "tasks.md"
         self._write_file(tasks_path, "task", items)
         
-        self.remove_task_from_archive(user_id, archive_date_str, task_id)
+        self.remove_task_from_archive(user_id, archive_date, task_id)
         
         return True

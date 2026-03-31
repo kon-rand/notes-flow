@@ -1,9 +1,12 @@
 import asyncio
+import logging
 from typing import Dict, Optional
 
 from aiogram import Bot
 
 from ..config.user_settings import user_settings
+
+logger = logging.getLogger(__name__)
 
 
 class SummarizeTimer:
