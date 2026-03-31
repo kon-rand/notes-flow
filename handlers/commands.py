@@ -85,9 +85,9 @@ async def help_handler(message: Message):
 
 💡 Подсказки:
 - Сообщения в инбоксе группируются автоматически
-- Саммаризация запускается через {delay} минут после последнего сообщения
+- Саммаризация запускается через {delay} секунд после последнего сообщения
 - Используйте /summarize для ручного запуска""".format(
-        delay=settings.DEFAULT_SUMMARIZE_DELAY // 60
+        delay=settings.DEFAULT_SUMMARIZE_DELAY
     )
     
     await message.answer(help_text)
