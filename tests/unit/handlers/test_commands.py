@@ -6,13 +6,23 @@ from bot.db.models import InboxMessage, Task, Note
 from handlers.commands import (
     start_handler,
     help_handler,
+    settings_handler,
     inbox_handler,
     tasks_handler,
     notes_handler,
     clear_handler,
-    settings_handler,
     done_task_handler,
-    delete_task_handler
+    delete_task_handler,
+    undone_task_handler,
+    archive_handler,
+    archive_date_handler,
+    backup_handler
+)
+
+from handlers.commands import (
+    update_or_create_task_message,
+    update_or_create_archive_message,
+    update_tasks_list
 )
 from handlers.summarizer import summarize_command
 
@@ -337,7 +347,7 @@ async def test_clear_handler_inbox(mock_message_with_update):
     with patch('handlers.commands.summarizer_timer') as MockTimer, \
          patch('handlers.commands.FileManager') as MockFM, \
          patch('handlers.commands.settings') as mock_settings, \
-         patch('handlers.commands.update_or_create_task_message') as mock_update_tasks, \
+         patch('handlers.commands.update_tasks_list') as mock_update_tasks, \
          patch('handlers.commands.update_or_create_archive_message') as mock_update_archive:
         
         mock_settings.DEFAULT_SUMMARIZE_DELAY = 300
@@ -353,9 +363,9 @@ async def test_clear_handler_inbox(mock_message_with_update):
         
         MockTimer.reset.assert_called_once_with(123456789)
         fm_instance.clear_messages.assert_called_once_with(123456789)
+        mock_message_with_update.answer.assert_called()
         mock_update_tasks.assert_called_once()
         mock_update_archive.assert_called_once()
-        assert "Инбокс очищен" in mock_update_tasks.call_args[0][1]
 
 
 @pytest.mark.asyncio
@@ -530,7 +540,7 @@ async def test_done_task_success(mock_message_with_update):
     mock_message_with_update.from_user.id = 123
     
     with patch('handlers.commands.FileManager') as MockFM, \
-         patch('handlers.commands.update_or_create_task_message') as mock_update:
+         patch('handlers.commands.update_tasks_list') as mock_update:
         fm_instance = MagicMock()
         fm_instance.update_task_status.return_value = True
         MockFM.return_value = fm_instance
@@ -539,8 +549,8 @@ async def test_done_task_success(mock_message_with_update):
         await done_task_handler(mock_message_with_update)
         
         fm_instance.update_task_status.assert_called_once_with(123, "task_001", "completed")
+        mock_message_with_update.answer.assert_called_once()
         mock_update.assert_called_once()
-        assert "отмечена как выполненная" in mock_update.call_args[0][1]
 
 
 @pytest.mark.asyncio
@@ -569,18 +579,15 @@ async def test_done_task_not_found(mock_message_with_update):
     mock_message_with_update.text = "/done_999"
     mock_message_with_update.from_user.id = 123
     
-    with patch('handlers.commands.FileManager') as MockFM, \
-         patch('handlers.commands.update_or_create_task_message') as mock_update:
+    with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.update_task_status.return_value = False
         MockFM.return_value = fm_instance
-        mock_update.return_value = 999
         
         await done_task_handler(mock_message_with_update)
         
         fm_instance.update_task_status.assert_called_once_with(123, "task_999", "completed")
-        mock_update.assert_called_once()
-        assert "не найдена" in mock_update.call_args[0][1]
+        mock_message_with_update.answer.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -590,7 +597,7 @@ async def test_delete_task_success(mock_message_with_update):
     mock_message_with_update.from_user.id = 123
     
     with patch('handlers.commands.FileManager') as MockFM, \
-         patch('handlers.commands.update_or_create_task_message') as mock_update:
+         patch('handlers.commands.update_tasks_list') as mock_update:
         fm_instance = MagicMock()
         fm_instance.delete_task.return_value = True
         MockFM.return_value = fm_instance
@@ -599,8 +606,8 @@ async def test_delete_task_success(mock_message_with_update):
         await delete_task_handler(mock_message_with_update)
         
         fm_instance.delete_task.assert_called_once_with(123, "task_001")
+        mock_message_with_update.answer.assert_called_once()
         mock_update.assert_called_once()
-        assert "удалена" in mock_update.call_args[0][1]
 
 
 @pytest.mark.asyncio
@@ -629,8 +636,7 @@ async def test_delete_task_not_found(mock_message_with_update):
     mock_message_with_update.text = "/del_999"
     mock_message_with_update.from_user.id = 123
     
-    with patch('handlers.commands.FileManager') as MockFM, \
-         patch('handlers.commands.update_or_create_task_message') as mock_update:
+    with patch('handlers.commands.FileManager') as MockFM:
         fm_instance = MagicMock()
         fm_instance.delete_task.return_value = False
         MockFM.return_value = fm_instance
@@ -638,5 +644,4 @@ async def test_delete_task_not_found(mock_message_with_update):
         await delete_task_handler(mock_message_with_update)
         
         fm_instance.delete_task.assert_called_once_with(123, "task_999")
-        mock_update.assert_called_once()
-        assert "не найдена" in mock_update.call_args[0][1]
+        mock_message_with_update.answer.assert_called_once()

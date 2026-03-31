@@ -954,3 +954,22 @@ class FileManager:
         self.remove_task_from_archive(user_id, archive_date, task_id)
         
         return True
+    
+    def restore_task_from_active(self, user_id: int, task_id: str) -> bool:
+        items = self._load_all_items(user_id, "tasks")
+        for i, (id, item_data) in enumerate(items):
+            if id == task_id and item_data.get("status") == "completed":
+                items[i] = (id, {
+                    "title": item_data.get("title"),
+                    "tags": item_data.get("tags", []),
+                    "status": "pending",
+                    "created_at": item_data.get("created_at"),
+                    "completed_at": None,
+                    "archived_at": item_data.get("archived_at"),
+                    "source_message_ids": item_data.get("source_message_ids", []),
+                    "content": item_data.get("content", ""),
+                })
+                tasks_path = self._get_user_dir(user_id) / "tasks.md"
+                self._write_file(tasks_path, "task", items)
+                return True
+        return False
