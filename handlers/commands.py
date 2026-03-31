@@ -461,6 +461,7 @@ async def archive_handler(message: Message):
     
     response = f"✅ Архивировано задач за {today.strftime('%Y-%m-%d')}: {len(archived_tasks)}"
     await update_or_create_archive_message(message, response)
+    await update_tasks_list(message)
 
 @router.message(Command("backup"))
 async def backup_handler(message: Message):
