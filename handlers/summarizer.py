@@ -55,7 +55,8 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup
             try:
                 await bot.send_message(
                     user_id, 
-                    "♻️ Инбокс уже пуст"
+                    "♻️ Инбокс уже пуст",
+                    parse_mode="Markdown"
                 )
             except Exception:
                 pass
@@ -156,7 +157,7 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup
             report_text = "\n".join(report_lines)
             
             try:
-                await bot.send_message(user_id, report_text.strip())
+                await bot.send_message(user_id, report_text.strip(), parse_mode="Markdown")
             except Exception:
                 pass
         
@@ -193,7 +194,8 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup
                     user_id,
                     "❌ Таймаут при обращении к LLM\n\n"
                     "💡 Ваши сообщения сохранены и будут обработаны позже.\n"
-                    "🔄 Попробуйте /summarize снова через 5-10 минут."
+                    "🔄 Попробуйте /summarize снова через 5-10 минут.",
+                    parse_mode="Markdown"
                 )
             except Exception:
                 pass
@@ -209,7 +211,8 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup
                 await bot.send_message(
                     user_id,
                     "❌ Сетевая ошибка при обращении к LLM\n\n"
-                    "💡 Проверьте соединение и попробуйте снова."
+                    "💡 Проверьте соединение и попробуйте снова.",
+                    parse_mode="Markdown"
                 )
             except Exception:
                 pass
@@ -226,7 +229,8 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup
                     user_id,
                     f"❌ Ошибка ответа от LLM: {str(e)}\n\n"
                     "💡 Ваши сообщения сохранены.\n"
-                    "🔄 Попробуйте /summarize снова."
+                    "🔄 Попробуйте /summarize снова.",
+                    parse_mode="Markdown"
                 )
             except Exception:
                 pass
@@ -243,7 +247,8 @@ async def auto_summarize(user_id: int, bot: Optional[Bot] = None, trigger_backup
                     user_id,
                     f"❌ Ошибка: {str(e)}\n\n"
                     "💡 Ваши сообщения сохранены.\n"
-                    "🔄 Попробуйте /summarize снова."
+                    "🔄 Попробуйте /summarize снова.",
+                    parse_mode="Markdown"
                 )
             except Exception:
                 pass
