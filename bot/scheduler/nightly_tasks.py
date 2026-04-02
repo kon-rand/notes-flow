@@ -6,14 +6,13 @@
 
 import logging
 from datetime import datetime
-from pathlib import Path
 
 from aiogram import Bot
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from bot.db.file_manager import FileManager
-from bot.scheduler.backup_scheduler import BackupScheduler, backup_scheduler
+from bot.scheduler.backup_scheduler import backup_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +41,13 @@ async def nightly_archive(bot: Bot) -> None:
                 
                 if archived_tasks:
                     logger.info(f"✅ Архивировано {len(archived_tasks)} задач за {today.strftime('%Y-%m-%d')}")
-                    
-                    # Запускаем бэкап ТОЛЬКО после ночной архивации
-                    if backup_scheduler:
-                        logger.info(f"📦 Планирование бэкапа после ночной архивации для пользователя {user_id}")
-                        await backup_scheduler.schedule_backup(user_id)
                 else:
                     logger.info(f"ℹ️ Нет задач для архивации у пользователя {user_id}")
+                
+                # Запускаем бэкап всегда после ночной архивации
+                if backup_scheduler:
+                    logger.info(f"📦 Планирование бэкапа для пользователя {user_id}")
+                    await backup_scheduler.schedule_backup(user_id)
             except Exception as e:
                 logger.error(f"❌ Ошибка обработки пользователя {user_id}: {e}")
                 continue
