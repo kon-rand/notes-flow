@@ -85,13 +85,13 @@ async def main():
     
     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
     
-    # Start nightly scheduler
-    start_scheduler()
-    
-    # Initialize backup scheduler - CRITICAL: must be done before nightly tasks
+    # Initialize backup scheduler - CRITICAL: must be done before scheduler starts
     from bot.scheduler.backup_scheduler import initialize_backup_scheduler
     initialize_backup_scheduler(bot, data_dir="data")
     logging.info("✅ Бэкап-планировщик инициализирован")
+    
+    # Start nightly scheduler
+    start_scheduler()
     
     # Setup nightly tasks with bot - CRITICAL: must be called before tasks run
     from bot.scheduler.nightly_tasks import setup_nightly_tasks
