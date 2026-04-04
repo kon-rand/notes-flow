@@ -77,3 +77,10 @@ class BackupScheduler:
 # Module-level instance for testing
 backup_scheduler: BackupScheduler | None = None
 
+
+def initialize_backup_scheduler(bot: Bot, data_dir: str = "data") -> None:
+    """Initialize the module-level backup_scheduler instance."""
+    global backup_scheduler
+    backup_scheduler = BackupScheduler(bot, data_dir=data_dir)
+    logger.info(f"BackupScheduler initialized with data_dir={data_dir}")
+
