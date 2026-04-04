@@ -12,7 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from bot.db.file_manager import FileManager
-import bot.scheduler.backup_scheduler as backup_scheduler_module
+
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +45,10 @@ async def nightly_archive(bot: Bot) -> None:
                     logger.info(f"ℹ️ Нет задач для архивации у пользователя {user_id}")
                 
                 # Запускаем бэкап всегда после ночной архивации
-                if backup_scheduler_module.backup_scheduler:
+                import bot.scheduler.backup_scheduler
+                if bot.scheduler.backup_scheduler.backup_scheduler:
                     logger.info(f"📦 Планирование бэкапа для пользователя {user_id}")
-                    await backup_scheduler_module.backup_scheduler.schedule_backup(user_id)
+                    await bot.scheduler.backup_scheduler.backup_scheduler.schedule_backup(user_id)
             except Exception as e:
                 logger.error(f"❌ Ошибка обработки пользователя {user_id}: {e}")
                 continue
