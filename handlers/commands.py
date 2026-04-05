@@ -56,9 +56,9 @@ async def start_handler(message: Message):
 /archive - архивация задач
 /help - показать эту справку"""
         
-        await message.answer(stats, parse_mode="Markdown")
+        await message.answer(stats, parse_mode="HTML")
     except Exception as e:
-        await message.answer(f"❌ Ошибка при загрузке статистики: {str(e)}", parse_mode="Markdown")
+        await message.answer(f"❌ Ошибка при загрузке статистики: {str(e)}", parse_mode="HTML")
 
 
 @router.message(Command("help"))
@@ -90,7 +90,7 @@ async def help_handler(message: Message):
         delay=settings.DEFAULT_SUMMARIZE_DELAY
     )
     
-    await message.answer(help_text, parse_mode="Markdown")
+    await message.answer(help_text, parse_mode="HTML")
 
 
 
@@ -111,16 +111,16 @@ async def settings_handler(message: Message):
             delay_seconds = delay_minutes * 60
             
             if delay_minutes < 1:
-                await message.answer("Задержка должна быть не менее 1 минуты", parse_mode="Markdown")
+                await message.answer("Задержка должна быть не менее 1 минуты", parse_mode="HTML")
                 return
             
             user_settings.set_delay(user_id, delay_seconds)
             await summarizer_timer.reset(user_id)
             asyncio.create_task(summarizer_timer.schedule_summarization(user_id, delay_seconds))
-            await message.answer(f"Задержка установлена на {delay_minutes} минут ({delay_seconds} секунд)", parse_mode="Markdown")
+            await message.answer(f"Задержка установлена на {delay_minutes} минут ({delay_seconds} секунд)", parse_mode="HTML")
             return
         except ValueError:
-            await message.answer("Некорректное значение задержки. Используйте: /settings <минуты>", parse_mode="Markdown")
+            await message.answer("Некорректное значение задержки. Используйте: /settings <минуты>", parse_mode="HTML")
             return
     
     elif len(parts) > 2 and parts[1] == "delay":
@@ -129,21 +129,21 @@ async def settings_handler(message: Message):
             delay_seconds = delay_minutes * 60
             
             if delay_minutes < 1:
-                await message.answer("Задержка должна быть не менее 1 минуты", parse_mode="Markdown")
+                await message.answer("Задержка должна быть не менее 1 минуты", parse_mode="HTML")
                 return
             
             user_settings.set_delay(user_id, delay_seconds)
             await summarizer_timer.reset(user_id)
             asyncio.create_task(summarizer_timer.schedule_summarization(user_id, delay_seconds))
-            await message.answer(f"Задержка установлена на {delay_minutes} минут ({delay_seconds} секунд)", parse_mode="Markdown")
+            await message.answer(f"Задержка установлена на {delay_minutes} минут ({delay_seconds} секунд)", parse_mode="HTML")
             return
         except ValueError:
-            await message.answer("Некорректное значение задержки. Используйте: /settings <минуты>", parse_mode="Markdown")
+            await message.answer("Некорректное значение задержки. Используйте: /settings <минуты>", parse_mode="HTML")
             return
     else:
         current_delay = user_settings.get_user_delay(user_id)
         current_delay_minutes = current_delay // 60
-        await message.answer(f"Текущая задержка: {current_delay_minutes} минут\nИспользуйте: /settings <минуты>", parse_mode="Markdown")
+        await message.answer(f"Текущая задержка: {current_delay_minutes} минут\nИспользуйте: /settings <минуты>", parse_mode="HTML")
 
 
 @router.message(Command("inbox"))
@@ -242,7 +242,7 @@ async def clear_handler(message: Message):
     parts = message.text.split() if message.text else []
     
     if len(parts) < 2 or parts[1] != "inbox":
-        await message.answer("Используйте: /clear inbox", parse_mode="Markdown")
+        await message.answer("Используйте: /clear inbox", parse_mode="HTML")
         return
     
     user_id = message.from_user.id
@@ -254,7 +254,7 @@ async def clear_handler(message: Message):
     file_manager = FileManager()
     file_manager.clear_messages(user_id)
     
-    await message.answer("Инбокс очищен", parse_mode="Markdown")
+    await message.answer("Инбокс очищен", parse_mode="HTML")
     await update_tasks_list(message)
     await update_or_create_archive_message(message, "Инбокс очищен")
 
@@ -267,7 +267,7 @@ async def done_task_handler(message: Message):
     
     task_number = message.text[6:]
     if not task_number.isdigit():
-        await message.answer("❌ Неверный формат команды. Используйте: /done_123", parse_mode="Markdown")
+        await message.answer("❌ Неверный формат команды. Используйте: /done_123", parse_mode="HTML")
         return
     
     task_id = f"task_{task_number.zfill(3)}"
@@ -277,10 +277,10 @@ async def done_task_handler(message: Message):
     success = file_manager.update_task_status(user_id, task_id, "completed")
     
     if success:
-        await message.answer(f"✅ Задача {task_number} отмечена как выполненная", parse_mode="Markdown")
+        await message.answer(f"✅ Задача {task_number} отмечена как выполненная", parse_mode="HTML")
         await update_tasks_list(message)
     else:
-        await message.answer(f"❌ Задача {task_number} не найдена", parse_mode="Markdown")
+        await message.answer(f"❌ Задача {task_number} не найдена", parse_mode="HTML")
 
 
 @router.message(F.text.startswith("/del_"))
@@ -291,7 +291,7 @@ async def delete_task_handler(message: Message):
     
     task_number = message.text[5:]
     if not task_number.isdigit():
-        await message.answer("❌ Неверный формат команды. Используйте: /del_123", parse_mode="Markdown")
+        await message.answer("❌ Неверный формат команды. Используйте: /del_123", parse_mode="HTML")
         return
     
     task_id = f"task_{task_number.zfill(3)}"
@@ -301,10 +301,10 @@ async def delete_task_handler(message: Message):
     success = file_manager.delete_task(user_id, task_id)
     
     if success:
-        await message.answer(f"✅ Задача {task_number} удалена", parse_mode="Markdown")
+        await message.answer(f"✅ Задача {task_number} удалена", parse_mode="HTML")
         await update_tasks_list(message)
     else:
-        await message.answer(f"❌ Задача {task_number} не найдена", parse_mode="Markdown")
+        await message.answer(f"❌ Задача {task_number} не найдена", parse_mode="HTML")
 
 
 @router.message(F.text.startswith("/undone_"))
@@ -315,7 +315,7 @@ async def undone_task_handler(message: Message):
     
     task_number = message.text[8:]
     if not task_number.isdigit():
-        await message.answer("❌ Неверный формат команды. Используйте: /undone_123", parse_mode="Markdown")
+        await message.answer("❌ Неверный формат команды. Используйте: /undone_123", parse_mode="HTML")
         return
     
     task_id = f"task_{task_number.zfill(3)}"
@@ -327,10 +327,10 @@ async def undone_task_handler(message: Message):
         success = file_manager.restore_task_from_archive(user_id, task_id)
     
     if success:
-        await message.answer(f"✅ Задача {task_number} возвращена в невыполненное состояние", parse_mode="Markdown")
+        await message.answer(f"✅ Задача {task_number} возвращена в невыполненное состояние", parse_mode="HTML")
         await update_tasks_list(message)
     else:
-        await message.answer(f"❌ Задача {task_number} не найдена", parse_mode="Markdown")
+        await message.answer(f"❌ Задача {task_number} не найдена", parse_mode="HTML")
 
 
 @router.message(Command("archived"))
@@ -347,7 +347,7 @@ async def archived_handler(message: Message):
         archive_dates = file_manager.get_archive_dates(user_id)
         
         if not archive_dates:
-            await message.answer("У вас пока нет архивов", parse_mode="Markdown")
+            await message.answer("У вас пока нет архивов", parse_mode="HTML")
             return
         
         response = "📁 Архивы задач:\n\n"
@@ -357,12 +357,12 @@ async def archived_handler(message: Message):
             date_navigate = date.replace("-", "_")
             response += f"📅 /{date_navigate} ({task_count} задач)\n"
         
-        await message.answer(response, parse_mode="Markdown")
+        await message.answer(response, parse_mode="HTML")
     else:
         date_input = parts[1]
         
         if not date_input.replace("_", "").isdigit():
-            await message.answer("❌ Неверный формат даты. Используйте: /archived YYYY_MM_DD", parse_mode="Markdown")
+            await message.answer("❌ Неверный формат даты. Используйте: /archived YYYY_MM_DD", parse_mode="HTML")
             return
         
         date_display = date_input.replace("_", "-")
@@ -371,7 +371,7 @@ async def archived_handler(message: Message):
         tasks = file_manager.get_tasks_by_archive_date(user_id, date_input)
         
         if not tasks:
-            await message.answer(f"Задач за {date_display} не найдено", parse_mode="Markdown")
+            await message.answer(f"Задач за {date_display} не найдено", parse_mode="HTML")
             return
         
         response = f"✅ Задачи за {date_display}:\n\n"
@@ -382,7 +382,7 @@ async def archived_handler(message: Message):
             response += f"   {task.content}\n"
             response += f"   /undone_{task_number}\n\n"
         
-        await message.answer(response, parse_mode="Markdown")
+        await message.answer(response, parse_mode="HTML")
         
 
 
@@ -434,7 +434,7 @@ async def archive_date_handler(message: Message):
     tasks = file_manager.get_tasks_by_archive_date(message.from_user.id, date_file)
     
     if not tasks:
-        await message.answer(f"Задач за {date_display} не найдено", parse_mode="Markdown")
+        await message.answer(f"Задач за {date_display} не найдено", parse_mode="HTML")
         return
     
     response = f"✅ Задачи за {date_display}:\n\n"
@@ -445,7 +445,7 @@ async def archive_date_handler(message: Message):
         response += f"   {task.content}\n"
         response += f"   /undone_{task_number}\n\n"
     
-    await message.answer(response, parse_mode="Markdown")
+    await message.answer(response, parse_mode="HTML")
 
 
 @router.message(Command("archive"))
@@ -475,7 +475,7 @@ async def backup_handler(message: Message):
         backup_file = file_manager.create_backup(user_id)
         
         if backup_file is None:
-            await message.answer("Нет данных для бэкапа", parse_mode="Markdown")
+            await message.answer("Нет данных для бэкапа", parse_mode="HTML")
             return
         
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
@@ -493,4 +493,4 @@ async def backup_handler(message: Message):
         
     except Exception as e:
         logger.error(f"Error creating backup for user {user_id}: {e}")
-        await message.answer(f"❌ Ошибка при создании бэкапа: {str(e)}", parse_mode="Markdown")
+        await message.answer(f"❌ Ошибка при создании бэкапа: {str(e)}", parse_mode="HTML")
